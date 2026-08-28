@@ -107,10 +107,26 @@ export default function ImportCSVPage() {
       };
     });
 
-    const { error } = await supabase.from('leads').insert(newLeads);
+    const { data: existingLeads, error: existingError } = await supabase
+      .from('leads')
+      .select('id, company_name');
 
-    if (error) {
-      alert(`Veriler aktarılırken hata oluştu: ${error.message}`);
+    if (existingError) {
+      alert(`Mevcut adaylar kontrol edilemedi: ${existingError.message}`);
+      return;
+    }
+
+    const existingByCompany = new Map((existingLeads || []).map((lead) => [lead.company_name.trim().toLocaleLowerCase('tr-TR'), lead.id]));
+    const results = await Promise.all(newLeads.map((lead) => {
+      const existingId = existingByCompany.get(lead.company_name.trim().toLocaleLowerCase('tr-TR'));
+      return existingId
+        ? supabase.from('leads').update(lead).eq('id', existingId)
+        : supabase.from('leads').insert(lead);
+    }));
+    const failed = results.find((result) => result.error)?.error;
+
+    if (failed) {
+      alert(`Veriler aktarılırken hata oluştu: ${failed.message}`);
     } else {
       setIsSuccess(true);
       setImportedCount(newLeads.length);
