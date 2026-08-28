@@ -69,6 +69,12 @@ export default function ProjectsPage() {
     loadLiveData();
   };
 
+  const updateRevisionCount = async (project: Project, change: number) => {
+    if (!isConfigured) return;
+    await supabase.from('projects').update({ revision_count: Math.max(0, Number(project.revision_count || 0) + change) }).eq('id', project.id);
+    loadLiveData();
+  };
+
   return (
     <Shell>
       <div className="space-y-6">
@@ -144,6 +150,8 @@ export default function ProjectsPage() {
                     </select>
                   </div>
                 </div>
+
+                <div className="flex items-center justify-between bg-apex-dark border border-apex-border rounded-xl px-3 py-2 text-xs"><span className="text-apex-muted">Müşteri revizyonu</span><div className="flex items-center gap-2"><button onClick={() => updateRevisionCount(proj, -1)} className="w-6 h-6 rounded border border-apex-border text-white">−</button><span className="font-bold text-white">{proj.revision_count || 0}</span><button onClick={() => updateRevisionCount(proj, 1)} className="w-6 h-6 rounded border border-apex-border text-apex-orange">+</button></div></div>
 
                 <div className="border-t border-apex-border pt-3 space-y-2">
                   <div className="flex justify-between items-center"><span className="text-[10px] uppercase tracking-wider text-apex-muted">Teslim Kontrol Listesi</span><span className="text-[10px] text-apex-orange font-bold">{checklists.filter((item) => item.project_id === proj.id && item.is_complete).length}/{checklists.filter((item) => item.project_id === proj.id).length}</span></div>

@@ -100,6 +100,8 @@ export default function LeadsPage() {
         booking_score: savedLead.booking_score,
         brand_score: savedLead.brand_score,
         notes: savedLead.notes,
+        contact_outcome: savedLead.contact_outcome,
+        outcome_note: savedLead.outcome_note,
         next_step_date: savedLead.next_step_date,
       }).eq('id', savedLead.id);
 
@@ -132,6 +134,8 @@ export default function LeadsPage() {
         booking_score: savedLead.booking_score,
         brand_score: savedLead.brand_score,
         notes: savedLead.notes,
+        contact_outcome: savedLead.contact_outcome,
+        outcome_note: savedLead.outcome_note,
         next_step_date: savedLead.next_step_date,
         created_by: currentUser?.id,
       });
@@ -163,6 +167,24 @@ export default function LeadsPage() {
       description: newActivity.description,
     });
     loadLiveData();
+  };
+
+  const handleLogOutcome = async (lead: Lead, outcome: NonNullable<Lead['contact_outcome']>, note: string) => {
+    if (!isConfigured) return;
+    const today = new Date();
+    const next = new Date(today);
+    const status: LeadStatus = outcome === 'Teklif İstedi' ? 'Teklif Gönderildi' : outcome === 'İlgileniyor' ? 'Takipte' : outcome === 'Olumsuz' ? 'Kaybedildi' : lead.status === 'Yeni' ? 'İlk Temas' : lead.status;
+    if (outcome === 'Ulaşılamadı') next.setDate(today.getDate() + 2);
+    if (outcome === 'İlgileniyor') next.setDate(today.getDate() + 3);
+    if (outcome === 'Teklif İstedi') next.setDate(today.getDate() + 1);
+    if (outcome === 'Daha Sonra Ara') next.setDate(today.getDate() + 7);
+    const nextDate = outcome === 'Olumsuz' ? null : next.toISOString().slice(0, 10);
+    await Promise.all([
+      supabase.from('leads').update({ contact_outcome: outcome, outcome_note: note || null, status, last_contact_date: today.toISOString().slice(0, 10), next_step_date: nextDate }).eq('id', lead.id),
+      supabase.from('lead_activities').insert({ lead_id: lead.id, user_id: currentUser?.id, user_name: currentUser?.name || 'Ekip Üyesi', type: 'Arama', description: `${outcome}${note ? ` — ${note}` : ''}` }),
+    ]);
+    loadLiveData();
+    setSelectedLead({ ...lead, contact_outcome: outcome, outcome_note: note, status, next_step_date: nextDate || undefined });
   };
 
   const handleConvertToProject = async (lead: Lead) => {
@@ -362,6 +384,7 @@ export default function LeadsPage() {
             onAddActivity={handleAddActivity}
             onUpdateStatus={handleUpdateStatus}
             onConvertToProject={handleConvertToProject}
+            onLogOutcome={handleLogOutcome}
           />
         )}
 

@@ -6,7 +6,8 @@ import { Lead, Proposal, ProposalStatus, TeamMember } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_PROPOSALS } from '@/lib/mockData';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { Plus, CheckCircle2, X } from 'lucide-react';
+import { Plus, CheckCircle2, FileDown, X } from 'lucide-react';
+import { SERVICE_PACKAGES } from '@/lib/servicePackages';
 
 export default function ProposalsPage() {
   const supabase = createClient();
@@ -25,6 +26,12 @@ export default function ProposalsPage() {
   const [amount, setAmount] = useState(0);
   const [validUntil, setValidUntil] = useState(new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
+
+  const applyPackage = (packageName: string) => {
+    const selected = SERVICE_PACKAGES.find((item) => item.name === packageName);
+    setServicePackage(packageName);
+    if (selected) setNotes((current) => current || `Kapsam: ${selected.scope}\nSüre: ${selected.timeline}\n\nFiyat ve ödeme planı müşteri görüşmesi sonrası netleştirilecektir.`);
+  };
 
   const loadLiveData = useCallback(async () => {
     if (!isConfigured) {
@@ -133,6 +140,13 @@ export default function ProposalsPage() {
     }
   };
 
+  const printProposal = (proposal: Proposal) => {
+    const page = window.open('', '_blank', 'width=900,height=1000');
+    if (!page) return;
+    page.document.write(`<!doctype html><html><head><title>${proposal.title}</title><style>body{font-family:Arial,sans-serif;padding:56px;color:#161616}h1{font-size:34px;margin:0}h2{font-size:20px;margin-top:42px}.accent{color:#f4511e}.meta{color:#666;line-height:1.8}.total{font-size:28px;font-weight:700}.box{background:#f4f4f4;padding:22px;border-radius:10px;white-space:pre-line}</style></head><body><p class="accent"><strong>APEX KREATİF</strong> · TEKLİF</p><h1>${proposal.title}</h1><p class="meta">Müşteri: ${proposal.lead_name}<br/>Tarih: ${proposal.date_sent}<br/>Geçerlilik: ${proposal.valid_until || '-'}</p><h2>Hizmet Paketi</h2><p>${proposal.service_package}</p><h2>Teklif Tutarı</h2><p class="total">${formatCurrency(Number(proposal.amount))}</p><h2>Kapsam ve Notlar</h2><div class="box">${proposal.notes || 'Kapsam müşteri görüşmesiyle netleştirilecektir.'}</div><p class="meta" style="margin-top:48px">Bu teklif APEX KREATİF tarafından hazırlanmıştır.</p><script>window.print()</script></body></html>`);
+    page.document.close();
+  };
+
   return (
     <Shell>
       <div className="space-y-6">
@@ -221,6 +235,7 @@ export default function ProposalsPage() {
                           Kabul Et & Proje Yap
                         </button>
                       )}
+                      <button onClick={() => printProposal(prop)} className="ml-2 p-1.5 text-apex-muted hover:text-apex-orange" title="PDF olarak kaydet / yazdır"><FileDown className="w-4 h-4" /></button>
                     </td>
                   </tr>
                 ))
@@ -273,13 +288,8 @@ export default function ProposalsPage() {
 
                 <div>
                   <label className="block font-semibold text-apex-muted mb-1">Hizmet Paketi</label>
-                  <input
-                    type="text"
-                    value={servicePackage}
-                    onChange={(e) => setServicePackage(e.target.value)}
-                    placeholder="Web Sitesi + Randevu Dashboard"
-                    className="w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5 focus:border-apex-orange focus:outline-none"
-                  />
+                  <select value={servicePackage} onChange={(e) => applyPackage(e.target.value)} className="w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5 focus:border-apex-orange focus:outline-none"><option value="">Paket seçin</option>{SERVICE_PACKAGES.map((item) => <option key={item.name}>{item.name}</option>)}</select>
+                  <input value={servicePackage} onChange={(e) => setServicePackage(e.target.value)} placeholder="Özel hizmet paketi" className="w-full mt-2 bg-apex-dark border border-apex-border rounded-lg text-white p-2.5 focus:border-apex-orange focus:outline-none" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -287,7 +297,7 @@ export default function ProposalsPage() {
                     <label className="block font-semibold text-apex-muted mb-1">Teklif Tutarı (₺) *</label>
                     <input
                       type="number"
-                      required
+                    min="0"
                       value={amount}
                       onChange={(e) => setAmount(Number(e.target.value))}
                       className="w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5 focus:border-apex-orange focus:outline-none"
@@ -311,7 +321,7 @@ export default function ProposalsPage() {
                     rows={3}
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Ödemenin %50'si peşin, %50'si teslimatta alınacaktır..."
+                    placeholder="Kapsam, teslim koşulları ve müşterinin onayladığı ödeme planı..."
                     className="w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5 focus:border-apex-orange focus:outline-none"
                   ></textarea>
                 </div>

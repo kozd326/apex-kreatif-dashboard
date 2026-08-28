@@ -13,6 +13,7 @@ interface LeadDetailDrawerProps {
   onAddActivity: (activity: LeadActivity) => void;
   onUpdateStatus: (leadId: string, newStatus: any) => void;
   onConvertToProject: (lead: Lead) => void;
+  onLogOutcome: (lead: Lead, outcome: NonNullable<Lead['contact_outcome']>, note: string) => void;
 }
 
 export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
@@ -23,10 +24,13 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   onAddActivity,
   onUpdateStatus,
   onConvertToProject,
+  onLogOutcome,
 }) => {
   const [newActivityText, setNewActivityText] = useState('');
   const [activityType, setActivityType] = useState<'Arama' | 'Toplantı' | 'Not' | 'E-posta'>('Not');
   const [copied, setCopied] = useState(false);
+  const [outcome, setOutcome] = useState<NonNullable<Lead['contact_outcome']>>(lead?.contact_outcome || 'İlgileniyor');
+  const [outcomeNote, setOutcomeNote] = useState(lead?.outcome_note || '');
 
   if (!lead) return null;
 
@@ -164,6 +168,12 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
                 {lead.assigned_name}
               </div>
             </div>
+          </div>
+
+          <div className="bg-apex-card border border-apex-border rounded-xl p-4 space-y-3">
+            <div><h3 className="text-xs font-bold text-apex-muted uppercase tracking-wider">Hızlı arama sonucu</h3><p className="text-[11px] text-apex-muted mt-1">Sonucu kaydeder, satış aşamasını ve bir sonraki takip gününü günceller.</p></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2"><select value={outcome} onChange={(e) => setOutcome(e.target.value as NonNullable<Lead['contact_outcome']>)} className="bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5"><option>Ulaşılamadı</option><option>İlgileniyor</option><option>Teklif İstedi</option><option>Daha Sonra Ara</option><option>Olumsuz</option></select><input value={outcomeNote} onChange={(e) => setOutcomeNote(e.target.value)} placeholder="Kısa görüşme notu" className="bg-apex-dark border border-apex-border rounded-lg text-xs text-white px-3" /></div>
+            <button onClick={() => onLogOutcome(lead, outcome, outcomeNote)} className="w-full bg-apex-dark border border-apex-border hover:border-apex-orange text-apex-orange text-xs font-bold py-2 rounded-lg">Sonucu Kaydet</button>
           </div>
 
           {lead.status === 'Kazanıldı' && (

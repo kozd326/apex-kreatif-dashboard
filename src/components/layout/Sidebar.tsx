@@ -18,6 +18,7 @@ import {
   WalletCards,
   Landmark,
   ContactRound,
+  Goal,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -29,6 +30,7 @@ const NAV_ITEMS = [
   { name: 'Tahsilatlar', href: '/payments', icon: WalletCards },
   { name: 'Finans & İşletme', href: '/finance', icon: Landmark },
   { name: 'Müşteri & Markalar', href: '/brands', icon: ContactRound },
+  { name: 'Hedefler & Raporlar', href: '/reports', icon: Goal },
   { name: 'Projeler', href: '/projects', icon: Briefcase },
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Mesaj Şablonları', href: '/templates', icon: MessageSquareQuote },

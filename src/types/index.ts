@@ -53,6 +53,8 @@ export interface Lead {
   delivery_cost?: number;
   recurring_months?: number;
   notes?: string;
+  contact_outcome?: 'Ulaşılamadı' | 'İlgileniyor' | 'Teklif İstedi' | 'Daha Sonra Ara' | 'Olumsuz';
+  outcome_note?: string;
   created_at: string;
   updated_at: string;
 }
@@ -115,6 +117,8 @@ export interface Project {
   delivered_at?: string;
   client_approval_date?: string;
   delivery_notes?: string;
+  revision_count?: number;
+  client_approval_note?: string;
   created_at: string;
 }
 
@@ -169,6 +173,15 @@ export interface ClientBrand {
   domain_provider?: string;
   hosting_provider?: string;
   renewal_date?: string;
+  notes?: string;
+}
+
+export interface AgencyGoal {
+  id: string;
+  month_start: string;
+  revenue_target: number;
+  new_lead_target: number;
+  proposal_target: number;
   notes?: string;
 }
 
