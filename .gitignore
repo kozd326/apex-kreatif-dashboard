@@ -1,0 +1,7 @@
+# Dependencies and Next.js build output
+node_modules/
+.next/
+
+# Local credentials and OS files
+.env.local
+.DS_Store
