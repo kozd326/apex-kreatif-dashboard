@@ -19,6 +19,7 @@ import {
   Landmark,
   ContactRound,
   Goal,
+  CircleHelp,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -31,6 +32,7 @@ const NAV_ITEMS = [
   { name: 'Finans & İşletme', href: '/finance', icon: Landmark },
   { name: 'Müşteri & Markalar', href: '/brands', icon: ContactRound },
   { name: 'Hedefler & Raporlar', href: '/reports', icon: Goal },
+  { name: 'Kullanım Rehberi', href: '/guide', icon: CircleHelp },
   { name: 'Projeler', href: '/projects', icon: Briefcase },
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Mesaj Şablonları', href: '/templates', icon: MessageSquareQuote },
@@ -38,11 +40,13 @@ const NAV_ITEMS = [
   { name: 'Ekip & Ayarlar', href: '/team', icon: Settings },
 ];
 
-export const Sidebar: React.FC = () => {
+interface SidebarProps { mobileOpen?: boolean; onMobileClose?: () => void; }
+
+export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileClose }) => {
   const pathname = usePathname();
 
   return (
-    <aside className="w-64 bg-apex-dark border-r border-apex-border flex flex-col justify-between h-screen sticky top-0 shrink-0">
+    <aside className={`${mobileOpen ? 'flex fixed inset-y-0 left-0 z-50 shadow-2xl' : 'hidden'} md:flex md:sticky md:top-0 w-64 bg-apex-dark border-r border-apex-border flex-col justify-between h-screen shrink-0`}>
       <div>
         {/* APEX KREATİF Brand Header */}
         <div className="h-16 px-6 flex items-center gap-3 border-b border-apex-border">
@@ -69,6 +73,7 @@ export const Sidebar: React.FC = () => {
               <Link
                 key={item.href}
                 href={item.href}
+                onClick={onMobileClose}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition-all ${
                   isActive
                     ? 'bg-apex-orange text-white shadow-md shadow-apex-orange/20 font-bold'

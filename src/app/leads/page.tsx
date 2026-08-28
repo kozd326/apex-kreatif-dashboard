@@ -69,6 +69,8 @@ export default function LeadsPage() {
     }
   }, [isConfigured, loadLiveData, supabase]);
 
+  useEffect(() => { setSearchQuery(new URLSearchParams(window.location.search).get('search') || ''); }, []);
+
   const handleSaveLead = async (savedLead: Lead) => {
     if (!isConfigured) return;
 

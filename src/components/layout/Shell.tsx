@@ -16,6 +16,7 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
   const supabase = createClient();
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const isConfigured = isSupabaseConfigured();
 
   useEffect(() => {
@@ -87,13 +88,15 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
   return (
     <div className="min-h-screen bg-apex-dark text-white flex">
       {/* Sidebar Navigation */}
-      <Sidebar />
+      <Sidebar mobileOpen={isMobileNavOpen} onMobileClose={() => setIsMobileNavOpen(false)} />
+      {isMobileNavOpen && <button aria-label="Menüyü kapat" onClick={() => setIsMobileNavOpen(false)} className="fixed inset-0 bg-black/60 z-40 md:hidden" />}
 
       {/* Main Content Viewport */}
       <div className="flex-1 flex flex-col min-w-0">
         <Header
           currentUser={currentUser}
           onOpenAddLeadModal={() => setIsLeadModalOpen(true)}
+          onOpenMobileNav={() => setIsMobileNavOpen(true)}
         />
 
         {/* Supabase Unconfigured Banner */}
@@ -108,7 +111,7 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
           </div>
         )}
 
-        <main className="p-6 md:p-8 flex-1 overflow-y-auto">{children}</main>
+        <main className="p-4 md:p-8 flex-1 overflow-y-auto">{children}</main>
       </div>
 
       {/* Quick Add Lead Modal */}

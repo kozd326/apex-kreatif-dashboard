@@ -16,6 +16,7 @@ export default function PaymentsPage() {
   const [title, setTitle] = useState('Kapora');
   const [amount, setAmount] = useState(0);
   const [dueDate, setDueDate] = useState('');
+  const [depositPercent, setDepositPercent] = useState(50);
 
   const load = useCallback(async () => {
     if (!configured) return;
@@ -43,6 +44,23 @@ export default function PaymentsPage() {
     load();
   };
 
+  const createPaymentPlan = async () => {
+    const project = projects.find((item) => item.id === projectId);
+    if (!configured || !project || Number(project.total_fee) <= 0 || depositPercent <= 0 || depositPercent >= 100) {
+      alert('Önce toplam ücreti girilmiş bir proje seçin ve kapora oranını %1–%99 arasında belirleyin.');
+      return;
+    }
+    const deposit = Math.round(Number(project.total_fee) * depositPercent) / 100;
+    const balance = Number(project.total_fee) - deposit;
+    const confirmed = window.confirm(`${project.client_name} için ${formatCurrency(deposit)} kapora ve ${formatCurrency(balance)} kalan ödeme planı oluşturulsun mu?`);
+    if (!confirmed) return;
+    const { error } = await supabase.from('payments').insert([
+      { project_id: project.id, title: `Kapora (%${depositPercent})`, amount: deposit, due_date: dueDate || null },
+      { project_id: project.id, title: 'Kalan ödeme', amount: balance, status: 'Ödeme Bekliyor' },
+    ]);
+    if (error) alert(`Ödeme planı oluşturulamadı: ${error.message}`); else load();
+  };
+
   return <Shell><div className="space-y-6"><div><h1 className="text-2xl font-extrabold text-white">Tahsilat Takibi</h1><p className="text-xs text-apex-muted mt-1">Kapora, ara ödeme ve kalan tutarları proje bazında kaydedin.</p></div>
     <form onSubmit={addPayment} className="bg-apex-card border border-apex-border rounded-xl p-4 grid grid-cols-1 md:grid-cols-5 gap-3 items-end">
       <div><label className="block text-[11px] text-apex-muted mb-1">Proje</label><select required value={projectId} onChange={(e) => setProjectId(e.target.value)} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5"><option value="">Seçin</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.client_name} — {project.project_name}</option>)}</select></div>
@@ -51,6 +69,7 @@ export default function PaymentsPage() {
       <div><label className="block text-[11px] text-apex-muted mb-1">Vade</label><input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5" /></div>
       <button className="flex justify-center items-center gap-2 bg-apex-orange hover:bg-apex-orange-hover text-white text-xs font-bold p-2.5 rounded-lg"><Plus className="w-4 h-4" />Ödeme Ekle</button>
     </form>
+    <div className="bg-apex-card/60 border border-apex-border rounded-xl p-4 flex flex-col md:flex-row gap-3 md:items-end"><div className="flex-1"><p className="text-xs font-bold text-white">Onaylı ödeme planı oluştur</p><p className="text-[11px] text-apex-muted mt-1">Seçili projenin gerçek toplam ücretini kullanır; oluşturulmadan önce onay ister.</p></div><div><label className="block text-[11px] text-apex-muted mb-1">Kapora oranı (%)</label><input min="1" max="99" type="number" value={depositPercent} onChange={(e) => setDepositPercent(Number(e.target.value))} className="w-28 bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5" /></div><button type="button" onClick={createPaymentPlan} className="bg-apex-dark border border-apex-border hover:border-apex-orange text-apex-orange text-xs font-bold px-4 py-2.5 rounded-lg">Planı Oluştur</button></div>
     <div className="bg-apex-card border border-apex-border rounded-xl overflow-hidden"><table className="w-full text-left text-xs"><thead className="bg-apex-dark text-apex-muted uppercase text-[10px]"><tr><th className="p-3">Ödeme</th><th className="p-3">Vade</th><th className="p-3 text-right">Tutar</th><th className="p-3">Durum</th></tr></thead><tbody>{payments.map((payment) => <tr key={payment.id} className="border-t border-apex-border/60"><td className="p-3 font-bold text-white">{payment.title}</td><td className="p-3 text-apex-muted">{payment.due_date || '-'}</td><td className="p-3 text-right text-white">{formatCurrency(Number(payment.amount))}</td><td className="p-3"><select value={payment.status} onChange={(e) => updateStatus(payment, e.target.value as Payment['status'])} className="bg-apex-dark border border-apex-border rounded p-1.5 text-xs text-white"><option>Ödeme Bekliyor</option><option>Kısmi Ödendi</option><option>Tamamlandı</option></select></td></tr>)}{payments.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-apex-muted">Henüz tahsilat kaydı yok.</td></tr>}</tbody></table></div>
   </div></Shell>;
 }
