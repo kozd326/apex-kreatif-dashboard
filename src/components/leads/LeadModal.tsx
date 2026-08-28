@@ -32,9 +32,17 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [status, setStatus] = useState<LeadStatus>(leadToEdit?.status || 'Yeni');
   const [assignedTo, setAssignedTo] = useState(leadToEdit?.assigned_to || currentUser.id);
   const [contactReason, setContactReason] = useState(leadToEdit?.contact_reason || '');
-  const [recommendedPackage, setRecommendedPackage] = useState(leadToEdit?.recommended_package || 'Web Sitesi + Özel Yazılım');
-  const [estimatedDealValue, setEstimatedDealValue] = useState(leadToEdit?.estimated_deal_value || 75000);
-  const [winProbability, setWinProbability] = useState(leadToEdit?.win_probability || 50);
+  const [recommendedPackage, setRecommendedPackage] = useState(leadToEdit?.recommended_package || '');
+  const [estimatedDealValue, setEstimatedDealValue] = useState(leadToEdit?.estimated_deal_value || 0);
+  const [winProbability, setWinProbability] = useState(leadToEdit?.win_probability || 10);
+  const [monthlyFee, setMonthlyFee] = useState(leadToEdit?.monthly_fee || 0);
+  const [deliveryCost, setDeliveryCost] = useState(leadToEdit?.delivery_cost || 0);
+  const [recurringMonths, setRecurringMonths] = useState(leadToEdit?.recurring_months || 0);
+  const [contactVerificationStatus, setContactVerificationStatus] = useState<NonNullable<Lead['contact_verification_status']>>(leadToEdit?.contact_verification_status || 'Araştırılacak');
+  const [websiteScore, setWebsiteScore] = useState(leadToEdit?.website_score ?? 0);
+  const [socialScore, setSocialScore] = useState(leadToEdit?.social_score ?? 0);
+  const [bookingScore, setBookingScore] = useState(leadToEdit?.booking_score ?? 0);
+  const [brandScore, setBrandScore] = useState(leadToEdit?.brand_score ?? 0);
   const [notes, setNotes] = useState(leadToEdit?.notes || '');
   const [nextStepDate, setNextStepDate] = useState(leadToEdit?.next_step_date || new Date().toISOString().split('T')[0]);
 
@@ -66,6 +74,14 @@ export const LeadModal: React.FC<LeadModalProps> = ({
       estimated_deal_value: dealValueNum,
       win_probability: winProbNum,
       expected_revenue: expectedRev,
+      monthly_fee: Number(monthlyFee) || 0,
+      delivery_cost: Number(deliveryCost) || 0,
+      recurring_months: Number(recurringMonths) || 0,
+      contact_verification_status: contactVerificationStatus,
+      website_score: Number(websiteScore),
+      social_score: Number(socialScore),
+      booking_score: Number(bookingScore),
+      brand_score: Number(brandScore),
       notes,
       next_step_date: nextStepDate,
       last_contact_date: new Date().toISOString().split('T')[0],
@@ -131,10 +147,9 @@ export const LeadModal: React.FC<LeadModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-apex-muted mb-1">Karar Verici *</label>
+              <label className="block text-xs font-semibold text-apex-muted mb-1">Karar Verici</label>
               <input
                 type="text"
-                required
                 value={decisionMaker}
                 onChange={(e) => setDecisionMaker(e.target.value)}
                 placeholder="Örn: Selin Yılmaz (Kurucu)"
@@ -143,10 +158,9 @@ export const LeadModal: React.FC<LeadModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-apex-muted mb-1">Telefon *</label>
+              <label className="block text-xs font-semibold text-apex-muted mb-1">Telefon</label>
               <input
                 type="text"
-                required
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Örn: +90 532 000 0000"
@@ -264,6 +278,35 @@ export const LeadModal: React.FC<LeadModalProps> = ({
                 className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none"
               />
             </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-apex-muted mb-1">Aylık Gelir (₺)</label>
+              <input type="number" min="0" value={monthlyFee} onChange={(e) => setMonthlyFee(Number(e.target.value))} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-apex-muted mb-1">Devam Eden Süre (ay)</label>
+              <input type="number" min="0" max="36" value={recurringMonths} onChange={(e) => setRecurringMonths(Number(e.target.value))} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-apex-muted mb-1">Tahmini Teslim Maliyeti (₺)</label>
+              <input type="number" min="0" value={deliveryCost} onChange={(e) => setDeliveryCost(Number(e.target.value))} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-apex-muted mb-1">İletişim Doğrulama</label>
+              <select value={contactVerificationStatus} onChange={(e) => setContactVerificationStatus(e.target.value as NonNullable<Lead['contact_verification_status']>)} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none">
+                <option>Araştırılacak</option><option>Kısmi Doğrulandı</option><option>Doğrulandı</option><option>Ulaşılamadı</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="border border-apex-border rounded-xl p-4 grid grid-cols-2 md:grid-cols-4 gap-3">
+            <p className="col-span-full text-xs font-bold text-white">Mini denetim puanı <span className="text-apex-muted font-normal">(0: kontrol edilmedi · 5: güçlü)</span></p>
+            {[
+              ['Web', websiteScore, setWebsiteScore], ['Sosyal medya', socialScore, setSocialScore], ['Randevu akışı', bookingScore, setBookingScore], ['Marka görünümü', brandScore, setBrandScore],
+            ].map(([label, value, setter]) => <div key={label as string}><label className="block text-[10px] text-apex-muted mb-1">{label as string}</label><input type="number" min="0" max="5" value={value as number} onChange={(e) => (setter as React.Dispatch<React.SetStateAction<number>>)(Number(e.target.value))} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" /></div>)}
           </div>
 
           <div>

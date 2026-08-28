@@ -14,6 +14,8 @@ import {
   UploadCloud,
   Settings,
   Zap,
+  ChartNoAxesCombined,
+  WalletCards,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -21,6 +23,8 @@ const NAV_ITEMS = [
   { name: 'Müşteri Adayları', href: '/leads', icon: Users },
   { name: 'Bugün Aranacaklar', href: '/today-calls', icon: PhoneCall, badge: 'Öncelikli' },
   { name: 'Teklifler', href: '/proposals', icon: FileSpreadsheet },
+  { name: 'Satış & Kârlılık', href: '/sales-control', icon: ChartNoAxesCombined },
+  { name: 'Tahsilatlar', href: '/payments', icon: WalletCards },
   { name: 'Projeler', href: '/projects', icon: Briefcase },
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Mesaj Şablonları', href: '/templates', icon: MessageSquareQuote },

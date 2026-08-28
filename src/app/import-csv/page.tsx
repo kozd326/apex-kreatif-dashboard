@@ -69,9 +69,20 @@ export default function ImportCSVPage() {
       const decisionMaker = row['Karar Verici'] || row['İsim'] || row['Contact'] || 'Yetkili';
       const phone = row['Telefon'] || row['Phone'] || '+90 530 000 0000';
       const email = row['E-posta'] || row['Email'] || null;
-      const website = row['Web'] || row['Website'] || null;
+      const website = row['Web Sitesi'] || row['Web'] || row['Website'] || null;
       const instagram = row['Instagram'] || null;
-      const dealVal = Number(row['Değer'] || row['Bütçe']) || 75000;
+      const sourceUrl = row['Kaynak URL'] || row['KaynakURL'] || row['Source URL'] || null;
+      const stageProbability: Record<string, number> = {
+        'Yeni': 10,
+        'İlk Temas': 20,
+        'Takipte': 30,
+        'Görüşme Planlandı': 40,
+        'Teklif Gönderildi': 60,
+        'Kazanıldı': 100,
+        'Kaybedildi': 0,
+      };
+      const status = row['Durum'] || 'Yeni';
+      const dealVal = Number(row['Değer'] || row['Bütçe'] || row['Teklif Tutarı']) || 0;
 
       return {
         company_name: companyName,
@@ -82,12 +93,17 @@ export default function ImportCSVPage() {
         email,
         website,
         instagram,
-        priority: 'Orta' as const,
-        status: 'Yeni' as const,
+        source_url: sourceUrl,
+        priority: row['Öncelik'] || 'Orta',
+        status,
         estimated_deal_value: dealVal,
-        win_probability: 50,
-        contact_reason: 'Google Sheets CSV İçe Aktarım',
-        notes: 'Google Sheets CSV dosyasından toplu olarak Supabase veritabanına aktarıldı.',
+        win_probability: stageProbability[status] ?? 10,
+        contact_reason: row['Görüşme Nedeni'] || 'Araştırma bekliyor',
+        recommended_package: row['Önerilen Paket'] || null,
+        first_contact_text: row['İlk Temas Metni'] || null,
+        mini_audit_notes: row['Mini Denetim / Kontrol'] || row['Görülen Fırsat / Not'] || null,
+        contact_verification_status: phone !== '+90 530 000 0000' || email || instagram ? 'Kısmi Doğrulandı' : 'Araştırılacak',
+        notes: row['Kişiselleştirme Durumu'] || 'Google Sheets CSV dosyasından toplu olarak aktarıldı.',
       };
     });
 

@@ -41,9 +41,17 @@ export interface Lead {
   recommended_package?: string;
   first_contact_text?: string;
   mini_audit_notes?: string;
+  contact_verification_status?: 'Araştırılacak' | 'Kısmi Doğrulandı' | 'Doğrulandı' | 'Ulaşılamadı';
+  website_score?: number;
+  social_score?: number;
+  booking_score?: number;
+  brand_score?: number;
   estimated_deal_value: number;
   win_probability: number; // Percentage 0-100
   expected_revenue: number; // estimated_deal_value * (win_probability / 100)
+  monthly_fee?: number;
+  delivery_cost?: number;
+  recurring_months?: number;
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -103,6 +111,18 @@ export interface Project {
   payment_status: PaymentStatus;
   files_or_links?: string;
   client_notes?: string;
+  created_at: string;
+}
+
+export interface Payment {
+  id: string;
+  project_id: string;
+  title: string;
+  amount: number;
+  due_date?: string;
+  paid_at?: string;
+  status: PaymentStatus;
+  notes?: string;
   created_at: string;
 }
 
