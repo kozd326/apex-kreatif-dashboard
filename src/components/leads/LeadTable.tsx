@@ -3,18 +3,20 @@
 import React from 'react';
 import { Lead } from '@/types';
 import { formatCurrency, formatDate, isOverdue } from '@/lib/utils';
-import { Eye, Edit2, AlertCircle } from 'lucide-react';
+import { Eye, Edit2, AlertCircle, Trash2 } from 'lucide-react';
 
 interface LeadTableProps {
   leads: Lead[];
   onSelectLead: (lead: Lead) => void;
   onEditLead: (lead: Lead) => void;
+  onDeleteLead: (lead: Lead) => void;
 }
 
 export const LeadTable: React.FC<LeadTableProps> = ({
   leads,
   onSelectLead,
   onEditLead,
+  onDeleteLead,
 }) => {
   return (
     <div className="bg-apex-card border border-apex-border rounded-xl overflow-hidden shadow-xl">
@@ -145,6 +147,13 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                           title="Düzenle"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => onDeleteLead(lead)}
+                          className="p-1.5 rounded bg-apex-dark border border-apex-border text-apex-muted hover:text-rose-400 hover:border-rose-800 transition-colors"
+                          title="Adayı Sil"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </td>

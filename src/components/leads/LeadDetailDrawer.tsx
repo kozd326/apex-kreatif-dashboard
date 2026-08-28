@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Lead, LeadActivity, TeamMember } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare, BriefcaseBusiness } from 'lucide-react';
+import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare, BriefcaseBusiness, Edit2, Trash2 } from 'lucide-react';
 
 interface LeadDetailDrawerProps {
   lead: Lead | null;
@@ -14,6 +14,8 @@ interface LeadDetailDrawerProps {
   onUpdateStatus: (leadId: string, newStatus: any) => void;
   onConvertToProject: (lead: Lead) => void;
   onLogOutcome: (lead: Lead, outcome: NonNullable<Lead['contact_outcome']>, note: string) => void;
+  onEditLead: (lead: Lead) => void;
+  onDeleteLead: (lead: Lead) => void;
 }
 
 export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
@@ -25,6 +27,8 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   onUpdateStatus,
   onConvertToProject,
   onLogOutcome,
+  onEditLead,
+  onDeleteLead,
 }) => {
   const [newActivityText, setNewActivityText] = useState('');
   const [activityType, setActivityType] = useState<'Arama' | 'Toplantı' | 'Not' | 'E-posta'>('Not');
@@ -76,12 +80,11 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg bg-apex-dark border border-apex-border flex items-center justify-center text-apex-muted hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => onEditLead(lead)} className="w-8 h-8 rounded-lg bg-apex-dark border border-apex-border flex items-center justify-center text-apex-muted hover:text-apex-orange" title="Düzenle"><Edit2 className="w-3.5 h-3.5" /></button>
+            <button onClick={() => onDeleteLead(lead)} className="w-8 h-8 rounded-lg bg-apex-dark border border-apex-border flex items-center justify-center text-apex-muted hover:text-rose-400" title="Sil"><Trash2 className="w-3.5 h-3.5" /></button>
+            <button onClick={onClose} className="w-8 h-8 rounded-lg bg-apex-dark border border-apex-border flex items-center justify-center text-apex-muted hover:text-white"><X className="w-4 h-4" /></button>
+          </div>
         </div>
 
         {/* Drawer Scrollable Content */}

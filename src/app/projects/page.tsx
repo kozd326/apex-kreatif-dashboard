@@ -7,6 +7,8 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_PROJECTS } from '@/lib/mockData';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { CheckCircle2, Circle, ExternalLink } from 'lucide-react';
+import { Edit2, Trash2 } from 'lucide-react';
+import { ProjectEditModal } from '@/components/projects/ProjectEditModal';
 
 export default function ProjectsPage() {
   const supabase = createClient();
@@ -14,6 +16,7 @@ export default function ProjectsPage() {
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [checklists, setChecklists] = useState<ProjectChecklistItem[]>([]);
+  const [editingProject, setEditingProject] = useState<Project | null>(null);
 
   const loadLiveData = useCallback(async () => {
     if (!isConfigured) {
@@ -75,6 +78,26 @@ export default function ProjectsPage() {
     loadLiveData();
   };
 
+  const saveProject = async (project: Project) => {
+    if (!isConfigured) return;
+    const { error } = await supabase.from('projects').update({
+      project_name: project.project_name, client_name: project.client_name, service_type: project.service_type,
+      total_fee: Number(project.total_fee) || 0, start_date: project.start_date || null, deadline: project.deadline || null,
+      deliverables: project.deliverables || null, files_or_links: project.files_or_links || null, client_notes: project.client_notes || null,
+    }).eq('id', project.id);
+    if (error) { alert(`Proje güncellenemedi: ${error.message}`); return; }
+    setEditingProject(null); loadLiveData();
+  };
+
+  const deleteProject = async (project: Project) => {
+    if (!isConfigured) return;
+    const confirmed = window.confirm(`“${project.project_name}” projesini silmek istediğine emin misin?\n\nBu işlem proje görevlerini, tahsilat planını ve teslim kontrol listesini de siler. Finans gider kayıtları ve marka kartı korunur, projeyle bağlantısı kaldırılır.`);
+    if (!confirmed) return;
+    const { error } = await supabase.from('projects').delete().eq('id', project.id);
+    if (error) { alert(`Proje silinemedi: ${error.message}`); return; }
+    loadLiveData();
+  };
+
   return (
     <Shell>
       <div className="space-y-6">
@@ -108,7 +131,7 @@ export default function ProjectsPage() {
                     <p className="text-xs text-apex-muted mt-0.5">Müşteri: <strong className="text-white">{proj.client_name}</strong></p>
                   </div>
 
-                  <span
+                  <div className="flex items-center gap-2"><span
                     className={`text-[10px] font-mono font-bold px-2.5 py-1 rounded-md border ${
                       proj.status === 'Tamamlandı'
                         ? 'bg-emerald-950/80 border-emerald-800 text-emerald-300'
@@ -118,7 +141,7 @@ export default function ProjectsPage() {
                     }`}
                   >
                     {proj.status}
-                  </span>
+                  </span><button onClick={() => setEditingProject(proj)} className="p-1.5 rounded border border-apex-border text-apex-muted hover:text-apex-orange" title="Projeyi düzenle"><Edit2 className="w-3.5 h-3.5" /></button><button onClick={() => deleteProject(proj)} className="p-1.5 rounded border border-apex-border text-apex-muted hover:text-rose-400" title="Projeyi sil"><Trash2 className="w-3.5 h-3.5" /></button></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
@@ -200,6 +223,7 @@ export default function ProjectsPage() {
             ))
           )}
         </div>
+        {editingProject && <ProjectEditModal project={editingProject} onClose={() => setEditingProject(null)} onSave={saveProject} />}
       </div>
     </Shell>
   );

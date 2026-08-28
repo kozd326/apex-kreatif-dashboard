@@ -159,6 +159,17 @@ export default function LeadsPage() {
     }
   };
 
+  const handleDeleteLead = async (lead: Lead) => {
+    if (!isConfigured) return;
+    const confirmed = window.confirm(`“${lead.company_name}” adayını silmek istediğine emin misin?\n\nAdayın aktivite geçmişi silinir. Mevcut teklif ve projeler korunur, yalnızca bu adayla bağlantıları kaldırılır.`);
+    if (!confirmed) return;
+    const { error } = await supabase.from('leads').delete().eq('id', lead.id);
+    if (error) { alert(`Aday silinemedi: ${error.message}`); return; }
+    if (selectedLead?.id === lead.id) setSelectedLead(null);
+    if (editingLead?.id === lead.id) { setEditingLead(null); setIsAddModalOpen(false); }
+    loadLiveData();
+  };
+
   const handleAddActivity = async (newActivity: LeadActivity) => {
     if (!isConfigured) return;
     await supabase.from('lead_activities').insert({
@@ -367,6 +378,7 @@ export default function LeadsPage() {
               setEditingLead(lead);
               setIsAddModalOpen(true);
             }}
+            onDeleteLead={handleDeleteLead}
           />
         ) : (
           <LeadKanban
@@ -387,6 +399,8 @@ export default function LeadsPage() {
             onUpdateStatus={handleUpdateStatus}
             onConvertToProject={handleConvertToProject}
             onLogOutcome={handleLogOutcome}
+            onEditLead={(lead) => { setSelectedLead(null); setEditingLead(lead); setIsAddModalOpen(true); }}
+            onDeleteLead={handleDeleteLead}
           />
         )}
 
