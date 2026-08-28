@@ -111,6 +111,10 @@ export interface Project {
   payment_status: PaymentStatus;
   files_or_links?: string;
   client_notes?: string;
+  deliverables?: string;
+  delivered_at?: string;
+  client_approval_date?: string;
+  delivery_notes?: string;
   created_at: string;
 }
 
@@ -123,6 +127,18 @@ export interface Payment {
   paid_at?: string;
   status: PaymentStatus;
   notes?: string;
+  created_at: string;
+}
+
+export interface BusinessExpense {
+  id: string;
+  project_id?: string;
+  vendor: string;
+  category: 'Yazılım' | 'Reklam' | 'Çekim & Edit' | 'Freelancer' | 'Vergi & Muhasebe' | 'Operasyon' | 'Diğer';
+  description?: string;
+  amount: number;
+  expense_date: string;
+  status: 'Planlandı' | 'Ödendi';
   created_at: string;
 }
 

@@ -165,6 +165,42 @@ export default function LeadsPage() {
     loadLiveData();
   };
 
+  const handleConvertToProject = async (lead: Lead) => {
+    if (!isConfigured) return;
+
+    const { data: existing } = await supabase
+      .from('projects')
+      .select('id')
+      .eq('lead_id', lead.id)
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      alert('Bu müşteri adayı zaten aktif bir projeye dönüştürülmüş.');
+      return;
+    }
+
+    const { error } = await supabase.from('projects').insert({
+      lead_id: lead.id,
+      project_name: lead.recommended_package || `${lead.company_name} Projesi`,
+      client_name: lead.company_name,
+      service_type: lead.recommended_package || 'Hizmet paketi belirlenecek',
+      assigned_to: lead.assigned_to || currentUser?.id,
+      assigned_name: lead.assigned_name || currentUser?.name || 'Ekip',
+      start_date: new Date().toISOString().slice(0, 10),
+      status: 'Başlamadı',
+      total_fee: Number(lead.estimated_deal_value) || 0,
+      payment_status: 'Ödeme Bekliyor',
+      client_notes: lead.notes || lead.mini_audit_notes,
+    });
+
+    if (error) {
+      alert(`Proje oluşturulamadı: ${error.message}`);
+      return;
+    }
+    setSelectedLead(null);
+    alert('Proje açıldı. Teslimat, ücret ve tahsilat bilgilerini Projeler ekranından tamamlayabilirsiniz.');
+  };
+
   // Filtered leads
   const filteredLeads = leads.filter((lead) => {
     const matchesSearch =
@@ -311,6 +347,7 @@ export default function LeadsPage() {
             onClose={() => setSelectedLead(null)}
             onAddActivity={handleAddActivity}
             onUpdateStatus={handleUpdateStatus}
+            onConvertToProject={handleConvertToProject}
           />
         )}
 

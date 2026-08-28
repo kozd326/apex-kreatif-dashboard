@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { Lead, LeadActivity, TeamMember } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare } from 'lucide-react';
+import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare, BriefcaseBusiness } from 'lucide-react';
 
 interface LeadDetailDrawerProps {
   lead: Lead | null;
@@ -12,6 +12,7 @@ interface LeadDetailDrawerProps {
   onClose: () => void;
   onAddActivity: (activity: LeadActivity) => void;
   onUpdateStatus: (leadId: string, newStatus: any) => void;
+  onConvertToProject: (lead: Lead) => void;
 }
 
 export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
@@ -21,6 +22,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   onClose,
   onAddActivity,
   onUpdateStatus,
+  onConvertToProject,
 }) => {
   const [newActivityText, setNewActivityText] = useState('');
   const [activityType, setActivityType] = useState<'Arama' | 'Toplantı' | 'Not' | 'E-posta'>('Not');
@@ -163,6 +165,16 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               </div>
             </div>
           </div>
+
+          {lead.status === 'Kazanıldı' && (
+            <button
+              onClick={() => onConvertToProject(lead)}
+              className="w-full flex items-center justify-center gap-2 bg-apex-orange hover:bg-apex-orange-hover text-white text-xs font-bold px-4 py-3 rounded-lg shadow-lg shadow-apex-orange/20"
+            >
+              <BriefcaseBusiness className="w-4 h-4" />
+              Aktif Projeye Dönüştür
+            </button>
+          )}
 
           {/* Audit Notes & Recommended Package */}
           <div className="space-y-2">

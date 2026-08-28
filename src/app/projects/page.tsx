@@ -41,7 +41,10 @@ export default function ProjectsPage() {
 
   const handleUpdateStatus = async (projectId: string, newStatus: ProjectStatus) => {
     if (!isConfigured) return;
-    await supabase.from('projects').update({ status: newStatus }).eq('id', projectId);
+    await supabase.from('projects').update({
+      status: newStatus,
+      delivered_at: newStatus === 'Tamamlandı' ? new Date().toISOString().slice(0, 10) : null,
+    }).eq('id', projectId);
     loadLiveData();
   };
 
@@ -136,6 +139,17 @@ export default function ProjectsPage() {
                   <div className="text-right">
                     <span className="text-apex-muted text-[10px] block">Teslimat Tarihi</span>
                     <span className="text-white font-bold">{formatDate(proj.deadline)}</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <span className="text-apex-muted text-[10px] block mb-1">Teslim Edilecekler</span>
+                    <span className="text-neutral-200 leading-relaxed">{proj.deliverables || 'Henüz tanımlanmadı'}</span>
+                  </div>
+                  <div>
+                    <span className="text-apex-muted text-[10px] block mb-1">Teslim Bilgisi</span>
+                    <span className="text-neutral-200">{proj.delivered_at ? `Teslim: ${formatDate(proj.delivered_at)}` : 'Teslim bekleniyor'}</span>
                   </div>
                 </div>
 

@@ -62,6 +62,16 @@ export default function ProposalsPage() {
 
     // Auto-convert to project if status changed to 'Kabul'
     if (newStatus === 'Kabul') {
+      const { data: existingProject } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('proposal_id', proposal.id)
+        .limit(1);
+
+      if (existingProject && existingProject.length > 0) {
+        loadLiveData();
+        return;
+      }
       const todayStr = new Date().toISOString().split('T')[0];
       await supabase.from('projects').insert({
         proposal_id: proposal.id,
