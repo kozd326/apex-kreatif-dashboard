@@ -2,17 +2,18 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { Project, ProjectStatus, PaymentStatus } from '@/types';
+import { Project, ProjectChecklistItem, ProjectStatus, PaymentStatus } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_PROJECTS } from '@/lib/mockData';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { ExternalLink } from 'lucide-react';
+import { CheckCircle2, Circle, ExternalLink } from 'lucide-react';
 
 export default function ProjectsPage() {
   const supabase = createClient();
   const isConfigured = isSupabaseConfigured();
 
   const [projects, setProjects] = useState<Project[]>([]);
+  const [checklists, setChecklists] = useState<ProjectChecklistItem[]>([]);
 
   const loadLiveData = useCallback(async () => {
     if (!isConfigured) {
@@ -20,8 +21,12 @@ export default function ProjectsPage() {
       return;
     }
 
-    const { data } = await supabase.from('projects').select('*').order('created_at', { ascending: false });
-    if (data) setProjects(data as Project[]);
+    const [projectsResult, checklistResult] = await Promise.all([
+      supabase.from('projects').select('*').order('created_at', { ascending: false }),
+      supabase.from('project_checklists').select('*').order('created_at', { ascending: true }),
+    ]);
+    if (projectsResult.data) setProjects(projectsResult.data as Project[]);
+    if (checklistResult.data) setChecklists(checklistResult.data as ProjectChecklistItem[]);
   }, [isConfigured, supabase]);
 
   useEffect(() => {
@@ -31,6 +36,7 @@ export default function ProjectsPage() {
       const channel = supabase
         .channel('projects-realtime')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => loadLiveData())
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'project_checklists' }, () => loadLiveData())
         .subscribe();
 
       return () => {
@@ -51,6 +57,15 @@ export default function ProjectsPage() {
   const handleUpdatePayment = async (projectId: string, newPayment: PaymentStatus) => {
     if (!isConfigured) return;
     await supabase.from('projects').update({ payment_status: newPayment }).eq('id', projectId);
+    loadLiveData();
+  };
+
+  const toggleChecklist = async (item: ProjectChecklistItem) => {
+    if (!isConfigured) return;
+    await supabase.from('project_checklists').update({
+      is_complete: !item.is_complete,
+      completed_at: !item.is_complete ? new Date().toISOString().slice(0, 10) : null,
+    }).eq('id', item.id);
     loadLiveData();
   };
 
@@ -128,6 +143,12 @@ export default function ProjectsPage() {
                       <option value="Tamamlandı">Tamamlandı (Ödendi)</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="border-t border-apex-border pt-3 space-y-2">
+                  <div className="flex justify-between items-center"><span className="text-[10px] uppercase tracking-wider text-apex-muted">Teslim Kontrol Listesi</span><span className="text-[10px] text-apex-orange font-bold">{checklists.filter((item) => item.project_id === proj.id && item.is_complete).length}/{checklists.filter((item) => item.project_id === proj.id).length}</span></div>
+                  {checklists.filter((item) => item.project_id === proj.id).map((item) => <button key={item.id} onClick={() => toggleChecklist(item)} className="w-full flex items-center gap-2 text-left text-[11px] text-neutral-300 hover:text-white"><span className={item.is_complete ? 'text-emerald-400' : 'text-apex-muted'}>{item.is_complete ? <CheckCircle2 className="w-4 h-4" /> : <Circle className="w-4 h-4" />}</span><span className={item.is_complete ? 'line-through text-apex-muted' : ''}>{item.title}</span></button>)}
+                  {checklists.filter((item) => item.project_id === proj.id).length === 0 && <p className="text-[11px] text-apex-muted">Kontrol listesi henüz oluşturulmadı.</p>}
                 </div>
 
                 <div className="bg-apex-dark border border-apex-border rounded-xl p-3.5 flex justify-between items-center text-xs font-mono">

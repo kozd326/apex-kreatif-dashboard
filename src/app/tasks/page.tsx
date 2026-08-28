@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { Task, TaskStatus, LeadPriority, TeamMember } from '@/types';
+import { Lead, Project, Task, TaskStatus, LeadPriority, TeamMember } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_TASKS, INITIAL_TEAM } from '@/lib/mockData';
 import { formatDate, isOverdue } from '@/lib/utils';
@@ -14,6 +14,8 @@ export default function TasksPage() {
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM);
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -22,6 +24,8 @@ export default function TasksPage() {
   const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [priority, setPriority] = useState<LeadPriority>('Orta');
+  const [relatedType, setRelatedType] = useState<'general' | 'lead' | 'project'>('general');
+  const [relatedId, setRelatedId] = useState('');
 
   const loadLiveData = useCallback(async () => {
     if (!isConfigured) {
@@ -31,6 +35,12 @@ export default function TasksPage() {
 
     const { data } = await supabase.from('tasks').select('*').order('due_date', { ascending: true });
     if (data) setTasks(data as Task[]);
+    const [leadsResult, projectsResult] = await Promise.all([
+      supabase.from('leads').select('*').neq('status', 'Kaybedildi').order('company_name'),
+      supabase.from('projects').select('*').order('created_at', { ascending: false }),
+    ]);
+    if (leadsResult.data) setLeads(leadsResult.data as Lead[]);
+    if (projectsResult.data) setProjects(projectsResult.data as Project[]);
 
     const { data: profilesData } = await supabase.from('profiles').select('*');
     if (profilesData && profilesData.length > 0) setTeamMembers(profilesData as TeamMember[]);
@@ -78,6 +88,8 @@ export default function TasksPage() {
       assigned_name: assignedMember?.name || 'Ekip Üyesi',
       due_date: dueDate,
       priority,
+      lead_id: relatedType === 'lead' ? relatedId || null : null,
+      project_id: relatedType === 'project' ? relatedId || null : null,
       status: 'Yapılacak',
       created_by: currentUser?.id,
     });
@@ -87,6 +99,7 @@ export default function TasksPage() {
     } else {
       setIsModalOpen(false);
       setTitle('');
+      setRelatedId(''); setRelatedType('general');
       loadLiveData();
     }
   };
@@ -200,6 +213,11 @@ export default function TasksPage() {
                     placeholder="Örn: Vortex Mimarlık teklif sunumu hazırla"
                     className="w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5 focus:border-apex-orange focus:outline-none"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block font-semibold text-apex-muted mb-1">Görev türü</label><select value={relatedType} onChange={(e) => { setRelatedType(e.target.value as 'general' | 'lead' | 'project'); setRelatedId(''); }} className="w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5"><option value="general">Ajans içi görev</option><option value="lead">Müşteri adayı</option><option value="project">Aktif proje</option></select></div>
+                  {relatedType !== 'general' && <div><label className="block font-semibold text-apex-muted mb-1">Bağlı kayıt</label><select required value={relatedId} onChange={(e) => setRelatedId(e.target.value)} className="w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5"><option value="">Seçin</option>{relatedType === 'lead' ? leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.company_name}</option>) : projects.map((project) => <option key={project.id} value={project.id}>{project.client_name} — {project.project_name}</option>)}</select></div>}
                 </div>
 
                 <div>

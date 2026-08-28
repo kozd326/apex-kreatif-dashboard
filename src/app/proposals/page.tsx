@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { Proposal, ProposalStatus, TeamMember } from '@/types';
+import { Lead, Proposal, ProposalStatus, TeamMember } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_PROPOSALS } from '@/lib/mockData';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -13,6 +13,7 @@ export default function ProposalsPage() {
   const isConfigured = isSupabaseConfigured();
 
   const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -20,7 +21,8 @@ export default function ProposalsPage() {
   const [leadName, setLeadName] = useState('');
   const [title, setTitle] = useState('');
   const [servicePackage, setServicePackage] = useState('Web Sitesi + Özel Yazılım');
-  const [amount, setAmount] = useState(85000);
+  const [leadId, setLeadId] = useState('');
+  const [amount, setAmount] = useState(0);
   const [validUntil, setValidUntil] = useState(new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
 
@@ -32,6 +34,8 @@ export default function ProposalsPage() {
 
     const { data } = await supabase.from('proposals').select('*').order('created_at', { ascending: false });
     if (data) setProposals(data as Proposal[]);
+    const { data: leadsData } = await supabase.from('leads').select('*').neq('status', 'Kaybedildi').order('company_name');
+    if (leadsData) setLeads(leadsData as Lead[]);
 
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
@@ -73,8 +77,9 @@ export default function ProposalsPage() {
         return;
       }
       const todayStr = new Date().toISOString().split('T')[0];
-      await supabase.from('projects').insert({
+      const { data: project } = await supabase.from('projects').insert({
         proposal_id: proposal.id,
+        lead_id: proposal.lead_id || null,
         project_name: proposal.title,
         client_name: proposal.lead_name,
         service_type: proposal.service_package,
@@ -86,7 +91,13 @@ export default function ProposalsPage() {
         total_fee: proposal.amount,
         payment_status: 'Ödeme Bekliyor',
         client_notes: proposal.notes,
-      });
+        deliverables: proposal.service_package,
+      }).select('id').single();
+
+      if (proposal.lead_id) await supabase.from('leads').update({ status: 'Kazanıldı', estimated_deal_value: proposal.amount, win_probability: 100 }).eq('id', proposal.lead_id);
+      if (project) await supabase.from('project_checklists').insert([
+        'Brief ve hedefler alındı', 'Sözleşme / teklif onayı kaydedildi', 'Tasarım veya üretim hazırlandı', 'Müşteri revizyonu tamamlandı', 'Teslim ve müşteri onayı alındı',
+      ].map((title) => ({ project_id: project.id, title, assigned_to: currentUser?.id, assigned_name: currentUser?.name || 'Ekip' })));
 
       alert(`🎉 "${proposal.lead_name}" teklifi kabul edildi ve otomatik olarak PROJELER veritabanına eklendi!`);
     }
@@ -99,6 +110,7 @@ export default function ProposalsPage() {
     if (!isConfigured) return;
 
     const { error } = await supabase.from('proposals').insert({
+      lead_id: leadId || null,
       lead_name: leadName,
       title: title || `${leadName} Teklifi`,
       service_package: servicePackage,
@@ -115,6 +127,7 @@ export default function ProposalsPage() {
     } else {
       setIsModalOpen(false);
       setLeadName('');
+      setLeadId('');
       setTitle('');
       loadLiveData();
     }
@@ -228,6 +241,13 @@ export default function ProposalsPage() {
               </div>
 
               <form onSubmit={handleCreateProposal} className="space-y-3 text-xs">
+                <div>
+                  <label className="block font-semibold text-apex-muted mb-1">Kayıtlı müşteri adayı</label>
+                  <select value={leadId} onChange={(e) => { const selected = leads.find((lead) => lead.id === e.target.value); setLeadId(e.target.value); if (selected) { setLeadName(selected.company_name); setServicePackage(selected.recommended_package || servicePackage); } }} className="w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5 focus:border-apex-orange focus:outline-none">
+                    <option value="">Listede yok / elle gir</option>
+                    {leads.map((lead) => <option key={lead.id} value={lead.id}>{lead.company_name}</option>)}
+                  </select>
+                </div>
                 <div>
                   <label className="block font-semibold text-apex-muted mb-1">Müşteri / İşletme Adı *</label>
                   <input

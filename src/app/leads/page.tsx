@@ -179,7 +179,7 @@ export default function LeadsPage() {
       return;
     }
 
-    const { error } = await supabase.from('projects').insert({
+    const { data: project, error } = await supabase.from('projects').insert({
       lead_id: lead.id,
       project_name: lead.recommended_package || `${lead.company_name} Projesi`,
       client_name: lead.company_name,
@@ -191,11 +191,25 @@ export default function LeadsPage() {
       total_fee: Number(lead.estimated_deal_value) || 0,
       payment_status: 'Ödeme Bekliyor',
       client_notes: lead.notes || lead.mini_audit_notes,
-    });
+      deliverables: lead.recommended_package || null,
+    }).select('id').single();
 
     if (error) {
       alert(`Proje oluşturulamadı: ${error.message}`);
       return;
+    }
+    if (project) {
+      await Promise.all([
+        supabase.from('client_brands').upsert({
+          lead_id: lead.id, project_id: project.id, company_name: lead.company_name,
+          contact_name: lead.decision_maker || null, contact_phone: lead.phone || null,
+          contact_email: lead.email || null, sector: lead.sector || null,
+          website: lead.website || null, instagram: lead.instagram || null,
+        }, { onConflict: 'lead_id' }),
+        supabase.from('project_checklists').insert([
+          'Brief ve hedefler alındı', 'Sözleşme / teklif onayı kaydedildi', 'Tasarım veya üretim hazırlandı', 'Müşteri revizyonu tamamlandı', 'Teslim ve müşteri onayı alındı',
+        ].map((title) => ({ project_id: project.id, title, assigned_to: lead.assigned_to || currentUser?.id, assigned_name: lead.assigned_name || currentUser?.name || 'Ekip' }))),
+      ]);
     }
     setSelectedLead(null);
     alert('Proje açıldı. Teslimat, ücret ve tahsilat bilgilerini Projeler ekranından tamamlayabilirsiniz.');

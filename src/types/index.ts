@@ -142,6 +142,36 @@ export interface BusinessExpense {
   created_at: string;
 }
 
+export interface ProjectChecklistItem {
+  id: string;
+  project_id: string;
+  title: string;
+  is_complete: boolean;
+  completed_at?: string;
+  assigned_to?: string;
+  assigned_name?: string;
+  due_date?: string;
+}
+
+export interface ClientBrand {
+  id: string;
+  lead_id?: string;
+  project_id?: string;
+  company_name: string;
+  contact_name?: string;
+  contact_phone?: string;
+  contact_email?: string;
+  sector?: string;
+  website?: string;
+  instagram?: string;
+  brand_colors?: string;
+  logo_url?: string;
+  domain_provider?: string;
+  hosting_provider?: string;
+  renewal_date?: string;
+  notes?: string;
+}
+
 export type TaskStatus = 'Yapılacak' | 'Devam Ediyor' | 'Tamamlandı';
 
 export interface Task {

@@ -17,6 +17,7 @@ import {
   ChartNoAxesCombined,
   WalletCards,
   Landmark,
+  ContactRound,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { name: 'Satış & Kârlılık', href: '/sales-control', icon: ChartNoAxesCombined },
   { name: 'Tahsilatlar', href: '/payments', icon: WalletCards },
   { name: 'Finans & İşletme', href: '/finance', icon: Landmark },
+  { name: 'Müşteri & Markalar', href: '/brands', icon: ContactRound },
   { name: 'Projeler', href: '/projects', icon: Briefcase },
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Mesaj Şablonları', href: '/templates', icon: MessageSquareQuote },

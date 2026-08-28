@@ -3,7 +3,7 @@
 import React from 'react';
 import { Lead } from '@/types';
 import { formatCurrency, formatDate, isOverdue } from '@/lib/utils';
-import { Eye, Edit2, AlertCircle, Phone, Calendar, ArrowUpDown } from 'lucide-react';
+import { Eye, Edit2, AlertCircle } from 'lucide-react';
 
 interface LeadTableProps {
   leads: Lead[];
@@ -26,6 +26,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               <th className="py-3 px-4">Sektör / Konum</th>
               <th className="py-3 px-4">Karar Verici</th>
               <th className="py-3 px-4">Öncelik</th>
+              <th className="py-3 px-4">Fırsat Skoru</th>
               <th className="py-3 px-4">Satış Durumu</th>
               <th className="py-3 px-4">Sorumlu</th>
               <th className="py-3 px-4 text-right">Proje Değeri</th>
@@ -37,7 +38,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           <tbody className="divide-y divide-apex-border/60">
             {leads.length === 0 ? (
               <tr>
-                <td colSpan={10} className="py-8 text-center text-apex-muted italic">
+                <td colSpan={11} className="py-8 text-center text-apex-muted italic">
                   Arama kriterlerine uygun müşteri adayı bulunamadı.
                 </td>
               </tr>
@@ -45,6 +46,9 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               leads.map((lead) => {
                 const overdue = isOverdue(lead.next_step_date);
                 const isHighPriority = lead.priority === 'Yüksek';
+                const auditScore = Math.round(((lead.website_score || 0) + (lead.social_score || 0) + (lead.booking_score || 0) + (lead.brand_score || 0)) / 20 * 100);
+                const contactScore = [lead.phone, lead.email, lead.instagram].filter(Boolean).length * 5;
+                const score = Math.min(100, auditScore + contactScore);
 
                 return (
                   <tr
@@ -61,6 +65,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                         <span>{lead.company_name}</span>
                       </div>
                     </td>
+
+                    <td className="py-3.5 px-4"><span className={`font-mono font-bold ${score >= 60 ? 'text-apex-orange' : 'text-apex-muted'}`}>{score || '—'}/100</span></td>
 
                     {/* Sector & Location */}
                     <td className="py-3.5 px-4 text-neutral-300">

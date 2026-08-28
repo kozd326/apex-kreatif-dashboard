@@ -10,6 +10,9 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_LEADS, INITIAL_PROPOSALS, INITIAL_ACTIVITIES, INITIAL_TASKS } from '@/lib/mockData';
 import { Lead, Proposal, LeadActivity, Task } from '@/types';
 import { Sparkles } from 'lucide-react';
+import Link from 'next/link';
+import { isOverdue } from '@/lib/utils';
+import { AlertTriangle, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 export default function DashboardPage() {
   const supabase = createClient();
@@ -19,6 +22,8 @@ export default function DashboardPage() {
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [activities, setActivities] = useState<LeadActivity[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const overdueTasks = tasks.filter((task) => task.status !== 'Tamamlandı' && isOverdue(task.due_date));
+  const followUps = leads.filter((lead) => lead.status !== 'Kazanıldı' && lead.status !== 'Kaybedildi' && isOverdue(lead.next_step_date));
 
   const loadLiveData = useCallback(async () => {
     if (!isConfigured) {
@@ -81,6 +86,11 @@ export default function DashboardPage() {
 
         {/* Top KPI Metric Cards */}
         <MetricCards leads={leads} proposals={proposals} />
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Link href="/today-calls" className="bg-apex-card border border-apex-border hover:border-apex-orange/60 rounded-xl p-4 flex justify-between items-center"><div className="flex gap-3 items-center"><AlertTriangle className="w-5 h-5 text-apex-orange" /><div><p className="text-sm font-bold text-white">Takip uyarıları</p><p className="text-[11px] text-apex-muted">{followUps.length} geciken müşteri takibi</p></div></div><ArrowRight className="w-4 h-4 text-apex-orange" /></Link>
+          <Link href="/tasks" className="bg-apex-card border border-apex-border hover:border-apex-orange/60 rounded-xl p-4 flex justify-between items-center"><div className="flex gap-3 items-center"><CheckCircle2 className="w-5 h-5 text-emerald-400" /><div><p className="text-sm font-bold text-white">Operasyon uyarıları</p><p className="text-[11px] text-apex-muted">{overdueTasks.length} geciken görev</p></div></div><ArrowRight className="w-4 h-4 text-apex-orange" /></Link>
+        </div>
 
         {/* Grid Section: Funnel Chart + Today's Tasks */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
