@@ -20,6 +20,7 @@ import {
   ContactRound,
   Goal,
   CircleHelp,
+  Send,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { name: 'Müşteri & Markalar', href: '/brands', icon: ContactRound },
   { name: 'Hedefler & Raporlar', href: '/reports', icon: Goal },
   { name: 'Kullanım Rehberi', href: '/guide', icon: CircleHelp },
+  { name: 'Mesaj Gönderimi', href: '/outreach', icon: Send },
   { name: 'Projeler', href: '/projects', icon: Briefcase },
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Mesaj Şablonları', href: '/templates', icon: MessageSquareQuote },
