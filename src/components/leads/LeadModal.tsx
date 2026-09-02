@@ -33,6 +33,8 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [assignedTo, setAssignedTo] = useState(leadToEdit?.assigned_to || currentUser.id);
   const [contactReason, setContactReason] = useState(leadToEdit?.contact_reason || '');
   const [recommendedPackage, setRecommendedPackage] = useState(leadToEdit?.recommended_package || '');
+  const [miniAuditNotes, setMiniAuditNotes] = useState(leadToEdit?.mini_audit_notes || '');
+  const [firstContactText, setFirstContactText] = useState(leadToEdit?.first_contact_text || '');
   const [estimatedDealValue, setEstimatedDealValue] = useState(leadToEdit?.estimated_deal_value || 0);
   const [winProbability, setWinProbability] = useState(leadToEdit?.win_probability || 10);
   const [monthlyFee, setMonthlyFee] = useState(leadToEdit?.monthly_fee || 0);
@@ -71,6 +73,8 @@ export const LeadModal: React.FC<LeadModalProps> = ({
       assigned_name: assignedMember.name,
       contact_reason: contactReason,
       recommended_package: recommendedPackage,
+      mini_audit_notes: miniAuditNotes,
+      first_contact_text: firstContactText,
       estimated_deal_value: dealValueNum,
       win_probability: winProbNum,
       expected_revenue: expectedRev,
@@ -316,6 +320,28 @@ export const LeadModal: React.FC<LeadModalProps> = ({
               value={recommendedPackage}
               onChange={(e) => setRecommendedPackage(e.target.value)}
               placeholder="Web Sitesi + Sosyal Medya Yönetimi"
+              className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-apex-muted mb-1">Gerçek Mini Denetim</label>
+            <textarea
+              rows={5}
+              value={miniAuditNotes}
+              onChange={(e) => setMiniAuditNotes(e.target.value)}
+              placeholder="Yalnızca doğruladığın web, Google Maps ve Instagram bulgularını yaz. Bulamadığın kanalı da açıkça belirt."
+              className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-apex-muted mb-1">İşletmeye Özel İlk Temas Metni</label>
+            <textarea
+              rows={5}
+              value={firstContactText}
+              onChange={(e) => setFirstContactText(e.target.value)}
+              placeholder="İşletmenin doğrulanmış görünümüne ve gerçek ihtiyacına göre, göndermeye hazır ilk mesajı yaz."
               className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none"
             />
           </div>
