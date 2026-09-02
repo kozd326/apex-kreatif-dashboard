@@ -67,6 +67,20 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const auditSections = [
+    ['Web sitesi', lead.website_findings],
+    ['Instagram / sosyal medya', lead.social_findings],
+    ['Randevu ve iletişim', lead.booking_findings],
+    ['Marka ve güven', lead.brand_findings],
+  ].filter(([, finding]) => Boolean(finding));
+
+  const salesPrepSections = [
+    ['Arama açılışı', lead.call_opening],
+    ['İhtiyaç soruları', lead.discovery_questions],
+    ['İtiraz / yanıt notu', lead.objection_reply],
+    ['Önerilen sonraki adım', lead.next_best_action],
+  ].filter(([, text]) => Boolean(text));
+
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-end">
       <div className="w-full max-w-xl bg-apex-dark border-l border-apex-border h-full flex flex-col justify-between shadow-2xl overflow-hidden">
@@ -210,6 +224,42 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               )}
             </div>
           </div>
+
+          {(auditSections.length > 0 || lead.audit_sources) && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-apex-muted uppercase tracking-wider">Kanıtlı Dijital Görünüm Denetimi</h3>
+                {lead.audit_checked_at && <span className="text-[10px] text-apex-muted">İncelendi: {formatDate(lead.audit_checked_at)}</span>}
+              </div>
+              <div className="bg-apex-card border border-apex-orange/30 rounded-xl p-4 space-y-3 text-xs">
+                {auditSections.map(([title, finding]) => (
+                  <div key={title as string} className="border-b border-apex-border last:border-b-0 pb-3 last:pb-0">
+                    <span className="text-apex-orange font-bold block mb-1">{title}</span>
+                    <p className="text-neutral-300 leading-relaxed whitespace-pre-wrap">{finding}</p>
+                  </div>
+                ))}
+                {lead.audit_sources && (
+                  <div className="pt-1">
+                    <span className="text-apex-muted block mb-1">Doğrulanan kaynaklar</span>
+                    <div className="space-y-1">
+                      {lead.audit_sources.split(/\n|,/).map((source) => source.trim()).filter(Boolean).map((source) => (
+                        <a key={source} href={source} target="_blank" rel="noreferrer" className="block text-apex-orange hover:underline break-all">{source}</a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {salesPrepSections.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between"><h3 className="text-xs font-bold text-apex-muted uppercase tracking-wider">Satış Hazırlık Kartı</h3><button onClick={() => handleCopyText(salesPrepSections.map(([title, text]) => `${title}:\n${text}`).join('\n\n'))} className="flex items-center gap-1 text-[11px] text-apex-orange hover:underline font-semibold"><Copy className="w-3 h-3" /> Kartı Kopyala</button></div>
+              <div className="bg-apex-card border border-apex-border rounded-xl p-4 space-y-3 text-xs">
+                {salesPrepSections.map(([title, text]) => <div key={title as string}><span className="text-white font-bold block mb-1">{title}</span><p className="text-neutral-300 leading-relaxed whitespace-pre-wrap">{text}</p></div>)}
+              </div>
+            </div>
+          )}
 
           {/* First Contact Text Copy Section */}
           {lead.first_contact_text && (

@@ -45,6 +45,16 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [socialScore, setSocialScore] = useState(leadToEdit?.social_score ?? 0);
   const [bookingScore, setBookingScore] = useState(leadToEdit?.booking_score ?? 0);
   const [brandScore, setBrandScore] = useState(leadToEdit?.brand_score ?? 0);
+  const [auditSources, setAuditSources] = useState(leadToEdit?.audit_sources || '');
+  const [websiteFindings, setWebsiteFindings] = useState(leadToEdit?.website_findings || '');
+  const [socialFindings, setSocialFindings] = useState(leadToEdit?.social_findings || '');
+  const [bookingFindings, setBookingFindings] = useState(leadToEdit?.booking_findings || '');
+  const [brandFindings, setBrandFindings] = useState(leadToEdit?.brand_findings || '');
+  const [auditCheckedAt, setAuditCheckedAt] = useState(leadToEdit?.audit_checked_at || '');
+  const [callOpening, setCallOpening] = useState(leadToEdit?.call_opening || '');
+  const [discoveryQuestions, setDiscoveryQuestions] = useState(leadToEdit?.discovery_questions || '');
+  const [objectionReply, setObjectionReply] = useState(leadToEdit?.objection_reply || '');
+  const [nextBestAction, setNextBestAction] = useState(leadToEdit?.next_best_action || '');
   const [notes, setNotes] = useState(leadToEdit?.notes || '');
   const [nextStepDate, setNextStepDate] = useState(leadToEdit?.next_step_date || new Date().toISOString().split('T')[0]);
 
@@ -86,6 +96,16 @@ export const LeadModal: React.FC<LeadModalProps> = ({
       social_score: Number(socialScore),
       booking_score: Number(bookingScore),
       brand_score: Number(brandScore),
+      audit_sources: auditSources,
+      website_findings: websiteFindings,
+      social_findings: socialFindings,
+      booking_findings: bookingFindings,
+      brand_findings: brandFindings,
+      audit_checked_at: auditCheckedAt || undefined,
+      call_opening: callOpening,
+      discovery_questions: discoveryQuestions,
+      objection_reply: objectionReply,
+      next_best_action: nextBestAction,
       notes,
       next_step_date: nextStepDate,
       last_contact_date: new Date().toISOString().split('T')[0],
@@ -311,6 +331,49 @@ export const LeadModal: React.FC<LeadModalProps> = ({
             {[
               ['Web', websiteScore, setWebsiteScore], ['Sosyal medya', socialScore, setSocialScore], ['Randevu akışı', bookingScore, setBookingScore], ['Marka görünümü', brandScore, setBrandScore],
             ].map(([label, value, setter]) => <div key={label as string}><label className="block text-[10px] text-apex-muted mb-1">{label as string}</label><input type="number" min="0" max="5" value={value as number} onChange={(e) => (setter as React.Dispatch<React.SetStateAction<number>>)(Number(e.target.value))} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" /></div>)}
+          </div>
+
+          <div className="border border-apex-orange/30 bg-apex-orange/5 rounded-xl p-4 space-y-3">
+            <div>
+              <h3 className="text-xs font-bold text-apex-orange uppercase tracking-wider">Kanıtlı dijital denetim</h3>
+              <p className="text-[11px] text-apex-muted mt-1">Yorum yerine görülen bulguyu ve kamuya açık kaynak bağlantısını yaz. Bulamadığın kanalı açıkça belirt.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-apex-muted mb-1">İnceleme Tarihi</label>
+                <input type="date" value={auditCheckedAt} onChange={(e) => setAuditCheckedAt(e.target.value)} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-apex-muted mb-1">Kaynak Bağlantıları</label>
+                <input value={auditSources} onChange={(e) => setAuditSources(e.target.value)} placeholder="Her satıra bir doğrulanmış URL" className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
+              </div>
+            </div>
+            {[
+              ['Web sitesi bulguları', websiteFindings, setWebsiteFindings, 'Mobil görünüm, sayfa geçişleri, görseller, eksik sayfalar veya kırık yönlendirmeler...'],
+              ['Instagram / sosyal medya bulguları', socialFindings, setSocialFindings, 'Son paylaşım, Reels düzeni, bio linki, içerik tutarlılığı; görünmeyeni varsayma...'],
+              ['Randevu ve iletişim akışı', bookingFindings, setBookingFindings, 'Telefon, WhatsApp, form, adres ve yönlendirme kontrolü...'],
+              ['Marka ve güven bulguları', brandFindings, setBrandFindings, 'Hizmet netliği, ekip, yorum, SSS, yerel güven ve öneri...'],
+            ].map(([label, value, setter, placeholder]) => (
+              <div key={label as string}>
+                <label className="block text-xs font-semibold text-apex-muted mb-1">{label as string}</label>
+                <textarea rows={3} value={value as string} onChange={(e) => (setter as React.Dispatch<React.SetStateAction<string>>)(e.target.value)} placeholder={placeholder as string} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
+              </div>
+            ))}
+          </div>
+
+          <div className="border border-apex-border rounded-xl p-4 space-y-3">
+            <div><h3 className="text-xs font-bold text-white uppercase tracking-wider">Satış hazırlık kartı</h3><p className="text-[11px] text-apex-muted mt-1">Aramadan veya mesajdan önce burada hazır dursun.</p></div>
+            {[
+              ['Arama açılışı', callOpening, setCallOpening, 'İlk 20–30 saniyede söylenecek, işletmeye özel giriş...'],
+              ['İhtiyaç soruları', discoveryQuestions, setDiscoveryQuestions, 'Her satıra bir soru: Randevular nereden geliyor? ...'],
+              ['İtiraz / yanıt notu', objectionReply, setObjectionReply, '“Bütçemiz yok” veya “zaten sosyal medya yapıyoruz” için gerçekçi yanıt...'],
+              ['Önerilen sonraki adım', nextBestAction, setNextBestAction, 'Örn: 10 dk keşif görüşmesi için iki saat öner; 3 gün sonra takip et.'],
+            ].map(([label, value, setter, placeholder]) => (
+              <div key={label as string}>
+                <label className="block text-xs font-semibold text-apex-muted mb-1">{label as string}</label>
+                <textarea rows={2} value={value as string} onChange={(e) => (setter as React.Dispatch<React.SetStateAction<string>>)(e.target.value)} placeholder={placeholder as string} className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
+              </div>
+            ))}
           </div>
 
           <div>

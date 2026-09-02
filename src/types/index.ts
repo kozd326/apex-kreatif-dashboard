@@ -46,6 +46,16 @@ export interface Lead {
   social_score?: number;
   booking_score?: number;
   brand_score?: number;
+  audit_sources?: string;
+  website_findings?: string;
+  social_findings?: string;
+  booking_findings?: string;
+  brand_findings?: string;
+  audit_checked_at?: string;
+  call_opening?: string;
+  discovery_questions?: string;
+  objection_reply?: string;
+  next_best_action?: string;
   estimated_deal_value: number;
   win_probability: number; // Percentage 0-100
   expected_revenue: number; // estimated_deal_value * (win_probability / 100)
