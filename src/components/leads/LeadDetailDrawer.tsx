@@ -39,6 +39,8 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   if (!lead) return null;
 
   const leadActivities = activities.filter((a) => a.lead_id === lead.id);
+  const hasVerifiedPhone = Boolean(lead.phone && !lead.phone.replace(/\D/g, '').endsWith('5300000000'));
+  const hasVerifiedEmail = Boolean(lead.email && !/^(info|mail|iletisim)@isletme\.com$/i.test(lead.email));
 
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,11 +117,13 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-apex-muted">Telefon:</span>
-                <a href={`tel:${lead.phone}`} className="font-mono text-apex-orange hover:underline flex items-center gap-1">
-                  <Phone className="w-3 h-3" /> {lead.phone}
-                </a>
+                {hasVerifiedPhone ? (
+                  <a href={`tel:${lead.phone}`} className="font-mono text-apex-orange hover:underline flex items-center gap-1">
+                    <Phone className="w-3 h-3" /> {lead.phone}
+                  </a>
+                ) : <span className="text-apex-muted italic">Doğrulanmadı</span>}
               </div>
-              {lead.email && (
+              {hasVerifiedEmail && (
                 <div className="flex items-center justify-between">
                   <span className="text-apex-muted">E-posta:</span>
                   <a href={`mailto:${lead.email}`} className="text-white hover:underline flex items-center gap-1">
@@ -127,6 +131,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
                   </a>
                 </div>
               )}
+              {!hasVerifiedEmail && <div className="flex items-center justify-between"><span className="text-apex-muted">E-posta:</span><span className="text-apex-muted italic">Doğrulanmadı</span></div>}
               {lead.website && (
                 <div className="flex items-center justify-between">
                   <span className="text-apex-muted">Web Sitesi:</span>
