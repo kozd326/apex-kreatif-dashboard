@@ -345,7 +345,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-semibold text-apex-muted mb-1">Kaynak Bağlantıları</label>
-                <input value={auditSources} onChange={(e) => setAuditSources(e.target.value)} placeholder="Her satıra bir doğrulanmış URL" className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
+                <textarea rows={2} value={auditSources} onChange={(e) => setAuditSources(e.target.value)} placeholder="Her satıra bir doğrulanmış URL" className="w-full bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5 focus:border-apex-orange focus:outline-none" />
               </div>
             </div>
             {[
