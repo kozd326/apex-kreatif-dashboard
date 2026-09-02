@@ -26,6 +26,7 @@ export default function ProposalsPage() {
   const [amount, setAmount] = useState(0);
   const [validUntil, setValidUntil] = useState(new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]);
   const [notes, setNotes] = useState('');
+  const [hasLoadedLeadFromLink, setHasLoadedLeadFromLink] = useState(false);
 
   const applyPackage = (packageName: string) => {
     const selected = SERVICE_PACKAGES.find((item) => item.name === packageName);
@@ -65,6 +66,21 @@ export default function ProposalsPage() {
       };
     }
   }, [isConfigured, loadLiveData, supabase]);
+
+  useEffect(() => {
+    if (hasLoadedLeadFromLink || leads.length === 0) return;
+    const leadIdFromLink = new URLSearchParams(window.location.search).get('lead');
+    if (!leadIdFromLink) return;
+    const selected = leads.find((lead) => lead.id === leadIdFromLink);
+    if (!selected) return;
+    setLeadId(selected.id);
+    setLeadName(selected.company_name);
+    setServicePackage(selected.recommended_package || '');
+    setTitle(`${selected.company_name} Dijital Gelişim Teklifi`);
+    setNotes(`İhtiyaç özeti:\n${selected.mini_audit_notes || 'Görüşmede netleştirilecek.'}\n\nKapsam, teslim süresi ve ödeme planı müşteri görüşmesi sonrasında birlikte netleştirilecektir.`);
+    setIsModalOpen(true);
+    setHasLoadedLeadFromLink(true);
+  }, [hasLoadedLeadFromLink, leads]);
 
   const handleUpdateStatus = async (proposal: Proposal, newStatus: ProposalStatus) => {
     if (!isConfigured) return;

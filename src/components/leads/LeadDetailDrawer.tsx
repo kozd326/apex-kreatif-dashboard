@@ -81,6 +81,19 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
     ['Önerilen sonraki adım', lead.next_best_action],
   ].filter(([, text]) => Boolean(text));
 
+  const conversationPack = [
+    `İŞLETME: ${lead.company_name} (${lead.sector} · ${lead.city_district})`,
+    lead.decision_maker && `KARAR VERİCİ: ${lead.decision_maker}`,
+    hasVerifiedPhone && `TELEFON: ${lead.phone}`,
+    hasVerifiedEmail && `E-POSTA: ${lead.email}`,
+    lead.recommended_package && `ÖNERİLEN HİZMET: ${lead.recommended_package}`,
+    lead.call_opening && `\nARAMA AÇILIŞI:\n${lead.call_opening}`,
+    lead.discovery_questions && `\nİHTİYAÇ SORULARI:\n${lead.discovery_questions}`,
+    lead.objection_reply && `\nİTİRAZ / YANIT:\n${lead.objection_reply}`,
+    lead.next_best_action && `\nSONRAKİ ADIM:\n${lead.next_best_action}`,
+    lead.first_contact_text && `\nİLK TEMAS METNİ:\n${lead.first_contact_text}`,
+  ].filter(Boolean).join('\n');
+
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-end">
       <div className="w-full max-w-xl bg-apex-dark border-l border-apex-border h-full flex flex-col justify-between shadow-2xl overflow-hidden">
@@ -123,7 +136,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
 
           {/* Quick Contact Bar */}
           <div className="space-y-2">
-            <h3 className="text-xs font-bold text-apex-muted uppercase tracking-wider">İletişim & Karar Verici</h3>
+            <div className="flex items-center justify-between"><h3 className="text-xs font-bold text-apex-muted uppercase tracking-wider">İletişim & Karar Verici</h3><button onClick={() => handleCopyText(conversationPack)} className="flex items-center gap-1 text-[11px] text-apex-orange hover:underline font-semibold"><Copy className="w-3 h-3" /> Görüşme Paketini Kopyala</button></div>
             <div className="bg-apex-card border border-apex-border rounded-xl p-4 space-y-2.5 text-xs text-neutral-300">
               <div className="flex items-center justify-between">
                 <span className="text-apex-muted">Karar Verici:</span>
@@ -206,6 +219,13 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               <BriefcaseBusiness className="w-4 h-4" />
               Aktif Projeye Dönüştür
             </button>
+          )}
+
+          {lead.status !== 'Kazanıldı' && lead.status !== 'Kaybedildi' && (
+            <a href={`/proposals?lead=${encodeURIComponent(lead.id)}`} className="w-full flex items-center justify-center gap-2 bg-apex-dark border border-apex-border hover:border-apex-orange text-apex-orange text-xs font-bold px-4 py-3 rounded-lg">
+              <BriefcaseBusiness className="w-4 h-4" />
+              Bu Aday İçin Teklif Hazırla
+            </a>
           )}
 
           {/* Audit Notes & Recommended Package */}
