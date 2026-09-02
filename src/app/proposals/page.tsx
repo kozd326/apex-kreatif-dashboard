@@ -148,6 +148,13 @@ export default function ProposalsPage() {
     if (error) {
       alert(`Teklif kaydedilirken hata oluştu: ${error.message}`);
     } else {
+      if (leadId) {
+        const followUpDate = new Date(Date.now() + 86400000 * 3).toISOString().split('T')[0];
+        await Promise.all([
+          supabase.from('leads').update({ status: 'Teklif Gönderildi', last_contact_date: new Date().toISOString().split('T')[0], next_step_date: followUpDate, estimated_deal_value: Number(amount) || 0 }).eq('id', leadId),
+          supabase.from('lead_activities').insert({ lead_id: leadId, user_id: currentUser?.id, user_name: currentUser?.name || 'Ekip Üyesi', type: 'Teklif Gönderildi', description: `${title || `${leadName} Teklifi`} kaydedildi. 3 gün sonrası için takip planlandı.` }),
+        ]);
+      }
       setIsModalOpen(false);
       setLeadName('');
       setLeadId('');
@@ -159,8 +166,29 @@ export default function ProposalsPage() {
   const printProposal = (proposal: Proposal) => {
     const page = window.open('', '_blank', 'width=900,height=1000');
     if (!page) return;
-    page.document.write(`<!doctype html><html><head><title>${proposal.title}</title><style>body{font-family:Arial,sans-serif;padding:56px;color:#161616}h1{font-size:34px;margin:0}h2{font-size:20px;margin-top:42px}.accent{color:#f4511e}.meta{color:#666;line-height:1.8}.total{font-size:28px;font-weight:700}.box{background:#f4f4f4;padding:22px;border-radius:10px;white-space:pre-line}</style></head><body><p class="accent"><strong>APEX KREATİF</strong> · TEKLİF</p><h1>${proposal.title}</h1><p class="meta">Müşteri: ${proposal.lead_name}<br/>Tarih: ${proposal.date_sent}<br/>Geçerlilik: ${proposal.valid_until || '-'}</p><h2>Hizmet Paketi</h2><p>${proposal.service_package}</p><h2>Teklif Tutarı</h2><p class="total">${formatCurrency(Number(proposal.amount))}</p><h2>Kapsam ve Notlar</h2><div class="box">${proposal.notes || 'Kapsam müşteri görüşmesiyle netleştirilecektir.'}</div><p class="meta" style="margin-top:48px">Bu teklif APEX KREATİF tarafından hazırlanmıştır.</p><script>window.print()</script></body></html>`);
-    page.document.close();
+    const document = page.document;
+    document.title = proposal.title;
+    const style = document.createElement('style');
+    style.textContent = 'body{font-family:Arial,sans-serif;padding:56px;color:#161616}h1{font-size:34px;margin:0}h2{font-size:20px;margin-top:42px}.accent{color:#f4511e}.meta{color:#666;line-height:1.8}.total{font-size:28px;font-weight:700}.box{background:#f4f4f4;padding:22px;border-radius:10px;white-space:pre-line}';
+    document.head.appendChild(style);
+    const add = (tag: string, text: string, className?: string) => {
+      const element = document.createElement(tag);
+      element.textContent = text;
+      if (className) element.className = className;
+      document.body.appendChild(element);
+    };
+    add('p', 'APEX KREATİF · TEKLİF', 'accent');
+    add('h1', proposal.title);
+    add('p', `Müşteri: ${proposal.lead_name}\nTarih: ${proposal.date_sent}\nGeçerlilik: ${proposal.valid_until || '-'}`, 'meta');
+    add('h2', 'Hizmet Paketi');
+    add('p', proposal.service_package);
+    add('h2', 'Teklif Tutarı');
+    add('p', formatCurrency(Number(proposal.amount)), 'total');
+    add('h2', 'Kapsam ve Notlar');
+    add('div', proposal.notes || 'Kapsam müşteri görüşmesiyle netleştirilecektir.', 'box');
+    add('p', 'Bu teklif APEX KREATİF tarafından hazırlanmıştır.', 'meta');
+    page.focus();
+    page.print();
   };
 
   return (

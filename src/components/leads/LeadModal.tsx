@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Lead, LeadPriority, LeadStatus, TeamMember } from '@/types';
 import { INITIAL_TEAM } from '@/lib/mockData';
+import { getSectorPlaybook } from '@/lib/salesPlaybooks';
 import { X } from 'lucide-react';
 
 interface LeadModalProps {
@@ -59,6 +60,14 @@ export const LeadModal: React.FC<LeadModalProps> = ({
   const [nextStepDate, setNextStepDate] = useState(leadToEdit?.next_step_date || new Date().toISOString().split('T')[0]);
 
   if (!isOpen) return null;
+
+  const applySectorPlaybook = () => {
+    const playbook = getSectorPlaybook({ company_name: companyName || 'Bu işletme', sector, city_district: cityDistrict });
+    setCallOpening((current) => current || playbook.call_opening || '');
+    setDiscoveryQuestions((current) => current || playbook.discovery_questions || '');
+    setObjectionReply((current) => current || playbook.objection_reply || '');
+    setNextBestAction((current) => current || playbook.next_best_action || '');
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -362,7 +371,7 @@ export const LeadModal: React.FC<LeadModalProps> = ({
           </div>
 
           <div className="border border-apex-border rounded-xl p-4 space-y-3">
-            <div><h3 className="text-xs font-bold text-white uppercase tracking-wider">Satış hazırlık kartı</h3><p className="text-[11px] text-apex-muted mt-1">Aramadan veya mesajdan önce burada hazır dursun.</p></div>
+            <div className="flex items-start justify-between gap-3"><div><h3 className="text-xs font-bold text-white uppercase tracking-wider">Satış hazırlık kartı</h3><p className="text-[11px] text-apex-muted mt-1">Aramadan veya mesajdan önce burada hazır dursun.</p></div><button type="button" onClick={applySectorPlaybook} className="shrink-0 border border-apex-orange/50 text-apex-orange hover:bg-apex-orange hover:text-white px-3 py-2 rounded-lg text-[11px] font-bold">Sektör senaryosunu uygula</button></div>
             {[
               ['Arama açılışı', callOpening, setCallOpening, 'İlk 20–30 saniyede söylenecek, işletmeye özel giriş...'],
               ['İhtiyaç soruları', discoveryQuestions, setDiscoveryQuestions, 'Her satıra bir soru: Randevular nereden geliyor? ...'],

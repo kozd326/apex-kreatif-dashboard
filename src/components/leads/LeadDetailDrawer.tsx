@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { Lead, LeadActivity, TeamMember } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare, BriefcaseBusiness, Edit2, Trash2 } from 'lucide-react';
+import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare, BriefcaseBusiness, Edit2, Trash2, FileDown } from 'lucide-react';
+import { getFollowUpMessage } from '@/lib/salesPlaybooks';
 
 interface LeadDetailDrawerProps {
   lead: Lead | null;
@@ -93,6 +94,58 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
     lead.next_best_action && `\nSONRAKİ ADIM:\n${lead.next_best_action}`,
     lead.first_contact_text && `\nİLK TEMAS METNİ:\n${lead.first_contact_text}`,
   ].filter(Boolean).join('\n');
+
+  const followUpMessage = getFollowUpMessage(lead, outcome);
+
+  const handlePrintAudit = () => {
+    const page = window.open('', '_blank', 'width=900,height=1000');
+    if (!page) return;
+    const document = page.document;
+    document.title = `${lead.company_name} Dijital Görünüm Notu`;
+    const style = document.createElement('style');
+    style.textContent = 'body{font-family:Arial,sans-serif;color:#181818;margin:0;padding:52px;line-height:1.55}h1{font-size:30px;margin:0 0 8px}h2{font-size:17px;margin:28px 0 10px;color:#e64a19}.brand{color:#e64a19;font-weight:700;letter-spacing:.08em}.meta{color:#666}.box{border:1px solid #ddd;border-radius:10px;padding:16px;margin:12px 0;white-space:pre-wrap}.note{margin-top:32px;color:#666;font-size:12px}a{color:#e64a19;word-break:break-all}';
+    document.head.appendChild(style);
+    const body = document.body;
+    const add = (tag: string, text: string, className?: string) => {
+      const element = document.createElement(tag);
+      element.textContent = text;
+      if (className) element.className = className;
+      body.appendChild(element);
+      return element;
+    };
+    add('p', 'APEX KREATİF · DİJİTAL GÖRÜNÜM NOTU', 'brand');
+    add('h1', lead.company_name);
+    add('p', `${lead.sector || 'Sektör belirtilmedi'} · ${lead.city_district || 'Konum belirtilmedi'}${lead.audit_checked_at ? ` · İnceleme: ${formatDate(lead.audit_checked_at)}` : ''}`, 'meta');
+    add('h2', 'Önerilen hizmet');
+    add('p', lead.recommended_package || 'Görüşmede netleştirilecek');
+    add('h2', 'İlk görünüm bulguları');
+    const findings = auditSections.length ? auditSections : [['Ön denetim notu', lead.mini_audit_notes]];
+    findings.forEach(([title, finding]) => {
+      const box = document.createElement('div');
+      box.className = 'box';
+      const heading = document.createElement('strong');
+      heading.textContent = String(title);
+      const text = document.createElement('div');
+      text.textContent = String(finding || 'Bulgular görüşmede netleştirilecek.');
+      box.append(heading, text);
+      body.appendChild(box);
+    });
+    if (lead.audit_sources) {
+      add('h2', 'İncelenen kamuya açık kaynaklar');
+      lead.audit_sources.split(/\n|,/).map((source) => source.trim()).filter(Boolean).forEach((source) => {
+        const link = document.createElement('a');
+        link.href = source;
+        link.target = '_blank';
+        link.rel = 'noreferrer';
+        link.textContent = source;
+        body.appendChild(link);
+        body.appendChild(document.createElement('br'));
+      });
+    }
+    add('p', 'Bu not, yalnızca kamuya açık dijital kanallardaki ilk görünüm incelemesidir. Teknik test, reklam hesabı veya platform içgörüsü içermez.', 'note');
+    page.focus();
+    page.print();
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-end">
@@ -208,6 +261,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           <div className="bg-apex-card border border-apex-border rounded-xl p-4 space-y-3">
             <div><h3 className="text-xs font-bold text-apex-muted uppercase tracking-wider">Hızlı arama sonucu</h3><p className="text-[11px] text-apex-muted mt-1">Sonucu kaydeder, satış aşamasını ve bir sonraki takip gününü günceller.</p></div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2"><select value={outcome} onChange={(e) => setOutcome(e.target.value as NonNullable<Lead['contact_outcome']>)} className="bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5"><option>Ulaşılamadı</option><option>İlgileniyor</option><option>Teklif İstedi</option><option>Daha Sonra Ara</option><option>Olumsuz</option></select><input value={outcomeNote} onChange={(e) => setOutcomeNote(e.target.value)} placeholder="Kısa görüşme notu" className="bg-apex-dark border border-apex-border rounded-lg text-xs text-white px-3" /></div>
+            <div className="bg-apex-dark border border-apex-border rounded-lg p-3 text-[11px] text-neutral-300 leading-relaxed"><div className="flex justify-between gap-3 mb-1"><span className="font-bold text-apex-orange">Sonuç sonrası hazır takip metni</span><button type="button" onClick={() => handleCopyText(followUpMessage)} className="text-apex-orange hover:underline">Kopyala</button></div>{followUpMessage}</div>
             <button onClick={() => onLogOutcome(lead, outcome, outcomeNote)} className="w-full bg-apex-dark border border-apex-border hover:border-apex-orange text-apex-orange text-xs font-bold py-2 rounded-lg">Sonucu Kaydet</button>
           </div>
 
@@ -249,7 +303,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-apex-muted uppercase tracking-wider">Kanıtlı Dijital Görünüm Denetimi</h3>
-                {lead.audit_checked_at && <span className="text-[10px] text-apex-muted">İncelendi: {formatDate(lead.audit_checked_at)}</span>}
+                <div className="flex items-center gap-3">{lead.audit_checked_at && <span className="text-[10px] text-apex-muted">İncelendi: {formatDate(lead.audit_checked_at)}</span>}<button onClick={handlePrintAudit} className="flex items-center gap-1 text-[11px] text-apex-orange hover:underline font-semibold"><FileDown className="w-3 h-3" /> Denetim PDF’i</button></div>
               </div>
               <div className="bg-apex-card border border-apex-orange/30 rounded-xl p-4 space-y-3 text-xs">
                 {auditSections.map(([title, finding]) => (

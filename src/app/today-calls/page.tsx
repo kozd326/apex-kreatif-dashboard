@@ -7,7 +7,8 @@ import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_LEADS } from '@/lib/mockData';
 import { INITIAL_TEMPLATES } from '@/lib/templatesData';
 import { formatCurrency, formatDate, isOverdue, isToday } from '@/lib/utils';
-import { PhoneCall, Check, Copy, Flame } from 'lucide-react';
+import { getSectorPlaybook } from '@/lib/salesPlaybooks';
+import { PhoneCall, Check, Copy, Flame, ExternalLink, FileText } from 'lucide-react';
 
 export default function TodayCallsPage() {
   const supabase = createClient();
@@ -119,6 +120,17 @@ export default function TodayCallsPage() {
             callQueue.map((lead) => {
               const overdue = isOverdue(lead.next_step_date);
               const defaultScript = lead.first_contact_text || INITIAL_TEMPLATES[1].content;
+              const playbook = getSectorPlaybook(lead);
+              const opening = lead.call_opening || playbook.call_opening;
+              const questions = lead.discovery_questions || playbook.discovery_questions;
+              const findings = [lead.website_findings, lead.social_findings, lead.booking_findings, lead.brand_findings].filter(Boolean);
+              const conversationPack = [
+                `${lead.company_name} · ${lead.sector}`,
+                `ARAMA AÇILIŞI:\n${opening}`,
+                `İHTİYAÇ SORULARI:\n${questions}`,
+                lead.next_best_action && `SONRAKİ ADIM:\n${lead.next_best_action}`,
+                `İLK TEMAS METNİ:\n${defaultScript}`,
+              ].filter(Boolean).join('\n\n');
 
               return (
                 <div
@@ -150,6 +162,9 @@ export default function TodayCallsPage() {
                     </div>
 
                     <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                      <a href={`/leads?search=${encodeURIComponent(lead.company_name)}`} className="flex items-center gap-1 text-[11px] text-apex-muted hover:text-apex-orange">
+                        <ExternalLink className="w-3.5 h-3.5" /> Aday kartı
+                      </a>
                       <a
                         href={`tel:${lead.phone}`}
                         onClick={() => handleQuickLogCall(lead)}
@@ -191,6 +206,19 @@ export default function TodayCallsPage() {
                       <p className="text-neutral-300 font-mono text-[11px] leading-relaxed line-clamp-3">
                         {defaultScript}
                       </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                    <div className="bg-apex-dark border border-apex-border rounded-xl p-4 space-y-2">
+                      <span className="text-apex-orange font-bold block text-[11px] uppercase tracking-wider">Arama açılışı & ihtiyaç soruları</span>
+                      <p className="text-neutral-200 leading-relaxed">{opening}</p>
+                      <p className="text-apex-muted leading-relaxed whitespace-pre-wrap border-t border-apex-border pt-2">{questions}</p>
+                    </div>
+                    <div className="bg-apex-dark border border-apex-border rounded-xl p-4 space-y-2">
+                      <div className="flex justify-between gap-3"><span className="text-apex-orange font-bold text-[11px] uppercase tracking-wider">Denetim bulguları</span><button onClick={() => handleCopyScript(conversationPack, `pack-${lead.id}`)} className="text-[11px] text-apex-orange hover:underline"><FileText className="w-3 h-3 inline mr-1" />{copiedId === `pack-${lead.id}` ? 'Paket kopyalandı' : 'Paketi kopyala'}</button></div>
+                      {findings.length > 0 ? <ul className="space-y-1 text-neutral-300 leading-relaxed">{findings.slice(0, 3).map((finding, index) => <li key={index}>• {finding}</li>)}</ul> : <p className="text-apex-muted">Henüz kanıtlı denetim bulgusu girilmemiş. Aday kartından ekleyebilirsiniz.</p>}
+                      {lead.status === 'Teklif Gönderildi' && <a href={`/proposals?lead=${encodeURIComponent(lead.id)}`} className="inline-flex mt-2 text-apex-orange hover:underline font-semibold">Teklif kaydını aç</a>}
                     </div>
                   </div>
                 </div>

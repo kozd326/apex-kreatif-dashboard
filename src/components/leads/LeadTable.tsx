@@ -48,9 +48,11 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               leads.map((lead) => {
                 const overdue = isOverdue(lead.next_step_date);
                 const isHighPriority = lead.priority === 'Yüksek';
-                const auditScore = Math.round(((lead.website_score || 0) + (lead.social_score || 0) + (lead.booking_score || 0) + (lead.brand_score || 0)) / 20 * 100);
+                const hasEvidence = Boolean(lead.audit_checked_at || lead.audit_sources || lead.website_findings || lead.social_findings || lead.booking_findings || lead.brand_findings);
+                const digitalGap = hasEvidence ? Math.round(((20 - ((lead.website_score || 0) + (lead.social_score || 0) + (lead.booking_score || 0) + (lead.brand_score || 0))) / 20) * 45) : 0;
                 const contactScore = [lead.phone, lead.email, lead.instagram].filter(Boolean).length * 5;
-                const score = Math.min(100, auditScore + contactScore);
+                const readinessScore = [lead.audit_sources, lead.first_contact_text, lead.next_best_action].filter(Boolean).length * 10;
+                const score = Math.min(100, digitalGap + contactScore + readinessScore + (lead.priority === 'Yüksek' ? 10 : 0));
 
                 return (
                   <tr
@@ -68,13 +70,13 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                       </div>
                     </td>
 
-                    <td className="py-3.5 px-4"><span className={`font-mono font-bold ${score >= 60 ? 'text-apex-orange' : 'text-apex-muted'}`}>{score || '—'}/100</span></td>
-
                     {/* Sector & Location */}
                     <td className="py-3.5 px-4 text-neutral-300">
                       <div>{lead.sector}</div>
                       <div className="text-[10px] text-apex-muted">{lead.city_district}</div>
                     </td>
+
+                    <td className="py-3.5 px-4"><span title="İletişim, denetim hazırlığı ve dijital gelişim fırsatına göre hesaplanır." className={`font-mono font-bold ${score >= 60 ? 'text-apex-orange' : 'text-apex-muted'}`}>{score || '—'}/100</span></td>
 
                     {/* Decision Maker */}
                     <td className="py-3.5 px-4 text-white font-medium">
