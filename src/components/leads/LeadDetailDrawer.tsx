@@ -1,10 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Lead, LeadActivity, TeamMember } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare, BriefcaseBusiness, Edit2, Trash2, FileDown } from 'lucide-react';
 import { getFollowUpMessage } from '@/lib/salesPlaybooks';
+import { getContactStrategy, getEvidenceStatus, getFollowUpPlan, getProposalBrief, getTenMinuteCallPlan } from '@/lib/leadIntelligence';
 
 interface LeadDetailDrawerProps {
   lead: Lead | null;
@@ -39,6 +40,11 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   const [outcome, setOutcome] = useState<NonNullable<Lead['contact_outcome']>>(lead?.contact_outcome || 'İlgileniyor');
   const [outcomeNote, setOutcomeNote] = useState(lead?.outcome_note || '');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  useEffect(() => {
+    setOutcome(lead?.contact_outcome || 'İlgileniyor');
+    setOutcomeNote(lead?.outcome_note || '');
+  }, [lead?.id, lead?.contact_outcome, lead?.outcome_note]);
 
   if (!lead) return null;
 
@@ -99,6 +105,11 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   ].filter(Boolean).join('\n');
 
   const followUpMessage = getFollowUpMessage(lead, outcome);
+  const contactStrategy = getContactStrategy(lead);
+  const evidenceStatus = getEvidenceStatus(lead);
+  const callPlan = getTenMinuteCallPlan(lead);
+  const proposalBrief = getProposalBrief(lead);
+  const followUpPlan = getFollowUpPlan(lead);
 
   const handlePrintAudit = () => {
     const page = window.open('', '_blank', 'width=900,height=1000');
@@ -243,6 +254,38 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
             </div>
           </div>
 
+          <div className="bg-apex-card border border-apex-orange/30 rounded-xl p-4 space-y-4 text-xs">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-bold text-white">Satış Asistanı</p>
+                <p className="text-[11px] text-apex-muted mt-1">Kayıtlı iletişim ve doğrulanmış denetim verisine göre temas şeklini netleştirir.</p>
+              </div>
+              <span className={`text-[10px] font-bold ${evidenceStatus.tone}`}>{evidenceStatus.label}</span>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="bg-apex-dark border border-apex-border rounded-lg p-3">
+                <span className="text-apex-muted block mb-1">İlk kanal</span>
+                <p className="font-bold text-apex-orange">{contactStrategy.primary}</p>
+                <p className="text-[11px] leading-relaxed text-neutral-300 mt-1">{contactStrategy.reason}</p>
+              </div>
+              <div className="bg-apex-dark border border-apex-border rounded-lg p-3">
+                <span className="text-apex-muted block mb-1">Kanıt durumu</span>
+                <p className="font-bold text-white">{evidenceStatus.detail}</p>
+                <p className="text-[11px] leading-relaxed text-neutral-300 mt-1">Kaynak yoksa denetimi kesin hüküm gibi göndermeyin.</p>
+              </div>
+            </div>
+            <div className="border-t border-apex-border pt-3">
+              <p className="font-bold text-white mb-2">Temas sırası</p>
+              <ol className="space-y-1.5 text-neutral-300 list-decimal list-inside leading-relaxed">
+                {contactStrategy.steps.map((step) => <li key={step}>{step}</li>)}
+              </ol>
+            </div>
+            <div className="border-t border-apex-border pt-3 flex items-start justify-between gap-3">
+              <div><p className="font-bold text-white">Takip otomasyonu</p><p className="text-[11px] text-neutral-300 mt-1 leading-relaxed">{followUpPlan}</p></div>
+              <button onClick={() => handleCopyText([`KANAL: ${contactStrategy.primary}`, contactStrategy.reason, 'TEMAS SIRASI:', ...contactStrategy.steps, 'TAKİP:', followUpPlan].join('\n'))} className="shrink-0 text-[11px] text-apex-orange hover:underline font-semibold">Kartı Kopyala</button>
+            </div>
+          </div>
+
           {/* Status & Assignment Controls */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -277,6 +320,13 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
             <button onClick={() => onLogOutcome(lead, outcome, outcomeNote)} className="w-full bg-apex-dark border border-apex-border hover:border-apex-orange text-apex-orange text-xs font-bold py-2 rounded-lg">Sonucu Kaydet</button>
           </div>
 
+          <div className="space-y-2">
+            <div className="flex items-center justify-between"><h3 className="text-xs font-bold text-apex-muted uppercase tracking-wider">10 Dakikalık Görüşme Koçu</h3><button onClick={() => handleCopyText(callPlan.map(([time, title, detail]) => `${time} · ${title}\n${detail}`).join('\n\n'))} className="text-[11px] text-apex-orange hover:underline font-semibold">Planı Kopyala</button></div>
+            <div className="bg-apex-card border border-apex-border rounded-xl p-4 space-y-3">
+              {callPlan.map(([time, title, detail]) => <div key={time} className="grid grid-cols-[52px_1fr] gap-3 text-xs"><span className="font-mono text-apex-orange font-bold">{time}</span><div><p className="font-bold text-white">{title}</p><p className="text-neutral-300 leading-relaxed mt-1 whitespace-pre-wrap">{detail}</p></div></div>)}
+            </div>
+          </div>
+
           {lead.status === 'Kazanıldı' && (
             <button
               onClick={() => onConvertToProject(lead)}
@@ -288,10 +338,10 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           )}
 
           {lead.status !== 'Kazanıldı' && lead.status !== 'Kaybedildi' && (
-            <a href={`/proposals?lead=${encodeURIComponent(lead.id)}`} className="w-full flex items-center justify-center gap-2 bg-apex-dark border border-apex-border hover:border-apex-orange text-apex-orange text-xs font-bold px-4 py-3 rounded-lg">
-              <BriefcaseBusiness className="w-4 h-4" />
-              Bu Aday İçin Teklif Hazırla
-            </a>
+            <div className="space-y-2">
+              <a href={`/proposals?lead=${encodeURIComponent(lead.id)}`} className="w-full flex items-center justify-center gap-2 bg-apex-dark border border-apex-border hover:border-apex-orange text-apex-orange text-xs font-bold px-4 py-3 rounded-lg"><BriefcaseBusiness className="w-4 h-4" />Bu Aday İçin Teklif Hazırla</a>
+              <div className="bg-apex-dark border border-apex-border rounded-lg p-3 text-[11px] text-neutral-300 whitespace-pre-wrap leading-relaxed"><span className="text-apex-orange font-bold block mb-1">Teklif kapsamı için hazır not</span>{proposalBrief}</div>
+            </div>
           )}
 
           {/* Audit Notes & Recommended Package */}

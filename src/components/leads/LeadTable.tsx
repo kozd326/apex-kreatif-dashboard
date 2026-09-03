@@ -3,6 +3,7 @@
 import React from 'react';
 import { Lead } from '@/types';
 import { formatCurrency, formatDate, isOverdue } from '@/lib/utils';
+import { getEvidenceStatus, getLeadReadinessScore } from '@/lib/leadIntelligence';
 import { Eye, Edit2, AlertCircle, Trash2 } from 'lucide-react';
 
 interface LeadTableProps {
@@ -48,11 +49,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               leads.map((lead) => {
                 const overdue = isOverdue(lead.next_step_date);
                 const isHighPriority = lead.priority === 'Yüksek';
-                const hasEvidence = Boolean(lead.audit_checked_at || lead.audit_sources || lead.website_findings || lead.social_findings || lead.booking_findings || lead.brand_findings);
-                const digitalGap = hasEvidence ? Math.round(((20 - ((lead.website_score || 0) + (lead.social_score || 0) + (lead.booking_score || 0) + (lead.brand_score || 0))) / 20) * 45) : 0;
-                const contactScore = [lead.phone, lead.email, lead.instagram].filter(Boolean).length * 5;
-                const readinessScore = [lead.audit_sources, lead.first_contact_text, lead.next_best_action].filter(Boolean).length * 10;
-                const score = Math.min(100, digitalGap + contactScore + readinessScore + (lead.priority === 'Yüksek' ? 10 : 0));
+                const score = getLeadReadinessScore(lead);
+                const evidence = getEvidenceStatus(lead);
 
                 return (
                   <tr
@@ -76,8 +74,6 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                       <div className="text-[10px] text-apex-muted">{lead.city_district}</div>
                     </td>
 
-                    <td className="py-3.5 px-4"><span title="İletişim, denetim hazırlığı ve dijital gelişim fırsatına göre hesaplanır." className={`font-mono font-bold ${score >= 60 ? 'text-apex-orange' : 'text-apex-muted'}`}>{score || '—'}/100</span></td>
-
                     {/* Decision Maker */}
                     <td className="py-3.5 px-4 text-white font-medium">
                       <div>{lead.decision_maker}</div>
@@ -97,6 +93,11 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                       >
                         {lead.priority}
                       </span>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <span title="İletişim, kanıtlı denetim ve görüşme hazırlığına göre hesaplanır." className={`font-mono font-bold ${score >= 60 ? 'text-apex-orange' : 'text-apex-muted'}`}>{score}/100</span>
+                      <div className={`text-[9px] mt-1 ${evidence.tone}`}>{evidence.label}</div>
                     </td>
 
                     {/* Status Badge */}

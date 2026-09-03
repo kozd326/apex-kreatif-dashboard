@@ -3,6 +3,18 @@ import { createClient } from '@/lib/supabase/server';
 
 const text = (value: unknown, max = 5000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const score = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(5, Math.round(value))) : 0;
+const analysisAttempts = new Map<string, number[]>();
+const analysisWindowMs = 10 * 60 * 1000;
+const maxAnalysesPerWindow = 5;
+
+function canRunAnalysis(userId: string) {
+  const now = Date.now();
+  const attempts = (analysisAttempts.get(userId) || []).filter((attempt) => now - attempt < analysisWindowMs);
+  if (attempts.length >= maxAnalysesPerWindow) return false;
+  attempts.push(now);
+  analysisAttempts.set(userId, attempts);
+  return true;
+}
 const analysisSchema = {
   type: 'object', additionalProperties: false,
   required: ['audit_sources', 'website_findings', 'social_findings', 'booking_findings', 'brand_findings', 'mini_audit_notes', 'recommended_package', 'contact_reason', 'first_contact_text', 'website_score', 'social_score', 'booking_score', 'brand_score', 'call_opening', 'discovery_questions', 'objection_reply', 'next_best_action'],
@@ -45,6 +57,7 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
   if (!profile || !['Yönetici', 'Satış'].includes(profile.role)) return NextResponse.json({ error: 'Bu işlem için analiz yetkiniz yok.' }, { status: 403 });
   if (!/^[0-9a-f-]{20,}$/i.test(params.leadId)) return NextResponse.json({ error: 'Geçersiz aday kaydı.' }, { status: 400 });
   if (!process.env.OPENAI_API_KEY) return NextResponse.json({ error: 'AI analizi henüz yapılandırılmadı. Railway değişkenlerine OPENAI_API_KEY ekleyin.' }, { status: 503 });
+  if (!canRunAnalysis(user.id)) return NextResponse.json({ error: 'Çok sayıda analiz isteği gönderildi. Lütfen birkaç dakika sonra tekrar deneyin.' }, { status: 429 });
 
   const { data: lead, error: leadError } = await supabase.from('leads').select('*').eq('id', params.leadId).single();
   if (leadError || !lead) return NextResponse.json({ error: 'Müşteri adayı bulunamadı.' }, { status: 404 });
