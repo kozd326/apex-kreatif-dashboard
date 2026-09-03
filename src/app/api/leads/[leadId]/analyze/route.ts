@@ -3,6 +3,16 @@ import { createClient } from '@/lib/supabase/server';
 
 const text = (value: unknown, max = 5000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const score = (value: unknown) => typeof value === 'number' && Number.isFinite(value) ? Math.max(0, Math.min(5, Math.round(value))) : 0;
+const analysisSchema = {
+  type: 'object', additionalProperties: false,
+  required: ['audit_sources', 'website_findings', 'social_findings', 'booking_findings', 'brand_findings', 'mini_audit_notes', 'recommended_package', 'contact_reason', 'first_contact_text', 'website_score', 'social_score', 'booking_score', 'brand_score', 'call_opening', 'discovery_questions', 'objection_reply', 'next_best_action'],
+  properties: {
+    audit_sources: { type: 'array', items: { type: 'string' } },
+    website_findings: { type: 'string' }, social_findings: { type: 'string' }, booking_findings: { type: 'string' }, brand_findings: { type: 'string' }, mini_audit_notes: { type: 'string' }, recommended_package: { type: 'string' }, contact_reason: { type: 'string' }, first_contact_text: { type: 'string' },
+    website_score: { type: 'number' }, social_score: { type: 'number' }, booking_score: { type: 'number' }, brand_score: { type: 'number' },
+    call_opening: { type: 'string' }, discovery_questions: { type: 'string' }, objection_reply: { type: 'string' }, next_best_action: { type: 'string' },
+  },
+};
 
 function parseAnalysis(output: string) {
   const raw = JSON.parse(output.replace(/^```json\s*|\s*```$/g, '').trim()) as Record<string, unknown>;
@@ -13,6 +23,18 @@ function parseAnalysis(output: string) {
     website_score: score(raw.website_score), social_score: score(raw.social_score), booking_score: score(raw.booking_score), brand_score: score(raw.brand_score),
     call_opening: text(raw.call_opening, 1200), discovery_questions: text(raw.discovery_questions, 1600), objection_reply: text(raw.objection_reply, 1200), next_best_action: text(raw.next_best_action, 900),
   };
+}
+
+function extractOutputText(result: unknown) {
+  if (!result || typeof result !== 'object') return '';
+  const response = result as { output_text?: unknown; output?: Array<{ content?: Array<{ text?: unknown }> }> };
+  if (typeof response.output_text === 'string' && response.output_text.trim()) return response.output_text;
+  return (response.output || [])
+    .flatMap((item) => item.content || [])
+    .map((content) => typeof content.text === 'string' ? content.text : '')
+    .filter(Boolean)
+    .join('\n')
+    .trim();
 }
 
 export async function POST(_: Request, { params }: { params: { leadId: string } }) {
@@ -40,12 +62,24 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5-mini', tools: [{ type: 'web_search' }], input: prompt, max_output_tokens: 2600 }),
+      body: JSON.stringify({
+        model: process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5-mini',
+        tools: [{ type: 'web_search' }],
+        input: prompt,
+        text: { format: { type: 'json_schema', name: 'lead_audit', strict: true, schema: analysisSchema } },
+        max_output_tokens: 2600,
+      }),
     });
     if (!response.ok) return NextResponse.json({ error: 'AI analizi şu anda tamamlanamadı. Anahtar ve model ayarını kontrol edin.' }, { status: 502 });
-    const result = await response.json() as { output_text?: string };
-    if (!result.output_text) return NextResponse.json({ error: 'AI analizinden okunabilir sonuç alınamadı.' }, { status: 502 });
-    const analysis = parseAnalysis(result.output_text);
+    const result = await response.json();
+    const output = extractOutputText(result);
+    if (!output) return NextResponse.json({ error: 'AI analizinden okunabilir sonuç alınamadı.' }, { status: 502 });
+    let analysis;
+    try {
+      analysis = parseAnalysis(output);
+    } catch {
+      return NextResponse.json({ error: 'AI analizi geçerli bir denetim çıktısı üretmedi. Lütfen yeniden deneyin.' }, { status: 502 });
+    }
     const { data: updated, error: updateError } = await supabase.from('leads').update({ ...analysis, audit_checked_at: new Date().toISOString().slice(0, 10) }).eq('id', lead.id).select('*').single();
     if (updateError || !updated) return NextResponse.json({ error: 'Analiz kaydedilemedi.' }, { status: 500 });
     await supabase.from('lead_activities').insert({ lead_id: lead.id, user_id: user.id, user_name: profile.name, type: 'Not', description: 'AI destekli kamuya açık dijital görünüm denetimi güncellendi.' });
