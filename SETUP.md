@@ -63,6 +63,19 @@ Bu doküman, **APEX KREATİF Sales & Project Management Dashboard** uygulamasın
 
 ## 4. Uygulamayı Çalıştırma
 
+## 4.1 AI destekli aday analizi (opsiyonel)
+
+AI analizi, aday kartındaki **AI Analizi Başlat** butonuyla yalnızca kamuya açık web ve arama sonuçlarını kullanarak denetim, ilk temas metni ve satış hazırlık kartını günceller.
+
+1. Railway projenizde servis > **Variables** ekranını açın.
+2. `OPENAI_API_KEY` değişkenini ekleyin. Bu anahtarı GitHub'a, `.env.example` dışındaki dosyalara veya `NEXT_PUBLIC_` ile başlayan bir değişkene yazmayın.
+3. İsterseniz model seçimi için `OPENAI_ANALYSIS_MODEL=gpt-5-mini` ekleyin.
+4. Yeniden deploy sonrası aday kartından **AI Analizi Başlat** butonuna basın.
+
+Analiz, erişemediği hesaplar veya görünmeyen Instagram metrikleri için kesin hüküm vermez; çıktı gönderilmeden önce ekip tarafından kontrol edilmelidir.
+
+## 5. Uygulamayı Çalıştırma
+
 Geliştirme sunucusunu başlatmak için:
 ```bash
 cd "/Users/kaanozdemir/Documents/yeni iş proje fikri/apex-kreatif-dashboard"

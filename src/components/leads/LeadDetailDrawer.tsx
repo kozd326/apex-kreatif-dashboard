@@ -17,6 +17,7 @@ interface LeadDetailDrawerProps {
   onLogOutcome: (lead: Lead, outcome: NonNullable<Lead['contact_outcome']>, note: string) => void;
   onEditLead: (lead: Lead) => void;
   onDeleteLead: (lead: Lead) => void;
+  onAnalyzeLead: (lead: Lead) => Promise<void>;
 }
 
 export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
@@ -30,12 +31,14 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   onLogOutcome,
   onEditLead,
   onDeleteLead,
+  onAnalyzeLead,
 }) => {
   const [newActivityText, setNewActivityText] = useState('');
   const [activityType, setActivityType] = useState<'Arama' | 'Toplantı' | 'Not' | 'E-posta'>('Not');
   const [copied, setCopied] = useState(false);
   const [outcome, setOutcome] = useState<NonNullable<Lead['contact_outcome']>>(lead?.contact_outcome || 'İlgileniyor');
   const [outcomeNote, setOutcomeNote] = useState(lead?.outcome_note || '');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   if (!lead) return null;
 
@@ -145,6 +148,15 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
     add('p', 'Bu not, yalnızca kamuya açık dijital kanallardaki ilk görünüm incelemesidir. Teknik test, reklam hesabı veya platform içgörüsü içermez.', 'note');
     page.focus();
     page.print();
+  };
+
+  const handleAnalyze = async () => {
+    setIsAnalyzing(true);
+    try {
+      await onAnalyzeLead(lead);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   return (
@@ -325,6 +337,11 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
               </div>
             </div>
           )}
+
+          <div className="bg-apex-card border border-apex-orange/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div><h3 className="text-xs font-bold text-white">AI destekli görünüm analizi</h3><p className="text-[11px] text-apex-muted mt-1">Kamuya açık web ve arama sonuçlarından denetim, ilk temas ve satış kartını günceller. Göndermeden önce gözden geçir.</p></div>
+            <button onClick={handleAnalyze} disabled={isAnalyzing} className="shrink-0 bg-apex-orange hover:bg-apex-orange-hover disabled:opacity-60 text-white text-xs font-bold px-3 py-2 rounded-lg">{isAnalyzing ? 'Analiz hazırlanıyor…' : 'AI Analizi Başlat'}</button>
+          </div>
 
           {salesPrepSections.length > 0 && (
             <div className="space-y-2">

@@ -194,6 +194,17 @@ export default function LeadsPage() {
     loadLiveData();
   };
 
+  const handleAnalyzeLead = async (lead: Lead) => {
+    const response = await fetch(`/api/leads/${encodeURIComponent(lead.id)}/analyze`, { method: 'POST' });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      alert(result.error || 'AI analizi başlatılamadı.');
+      return;
+    }
+    if (result.lead) setSelectedLead(result.lead as Lead);
+    loadLiveData();
+  };
+
   const handleAddActivity = async (newActivity: LeadActivity) => {
     if (!isConfigured) return;
     await supabase.from('lead_activities').insert({
@@ -425,6 +436,7 @@ export default function LeadsPage() {
             onLogOutcome={handleLogOutcome}
             onEditLead={(lead) => { setSelectedLead(null); setEditingLead(lead); setIsAddModalOpen(true); }}
             onDeleteLead={handleDeleteLead}
+            onAnalyzeLead={handleAnalyzeLead}
           />
         )}
 
