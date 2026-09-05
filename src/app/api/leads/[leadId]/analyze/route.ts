@@ -28,6 +28,18 @@ const analysisSchema = {
 
 function parseAnalysis(output: string) {
   const raw = JSON.parse(output.replace(/^```json\s*|\s*```$/g, '').trim()) as Record<string, unknown>;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw) || analysisSchema.required.some((key) => !(key in raw))) {
+    throw new Error('Incomplete analysis fields');
+  }
+  for (const key of analysisSchema.required) {
+    if (key === 'audit_sources') {
+      if (!Array.isArray(raw[key]) || raw[key].some((item: unknown) => typeof item !== 'string')) throw new Error('Invalid audit sources');
+    } else if (key.endsWith('_score')) {
+      if (typeof raw[key] !== 'number' || !Number.isFinite(raw[key])) throw new Error('Invalid audit score');
+    } else if (typeof raw[key] !== 'string' || !(raw[key] as string).trim()) {
+      throw new Error('Missing audit text');
+    }
+  }
   return {
     audit_sources: Array.isArray(raw.audit_sources) ? raw.audit_sources.filter((item): item is string => typeof item === 'string' && /^https?:\/\//.test(item)).slice(0, 8).join('\n') : '',
     website_findings: text(raw.website_findings), social_findings: text(raw.social_findings), booking_findings: text(raw.booking_findings), brand_findings: text(raw.brand_findings),
@@ -37,16 +49,54 @@ function parseAnalysis(output: string) {
   };
 }
 
+function readResponseText(value: unknown): string {
+  if (typeof value === 'string') return value.trim();
+  if (!value || typeof value !== 'object') return '';
+
+  const record = value as Record<string, unknown>;
+  for (const candidate of [record.text, record.value, record.output_text]) {
+    if (candidate !== value) {
+      const extracted = readResponseText(candidate);
+      if (extracted) return extracted;
+    }
+  }
+
+  return '';
+}
+
 function extractOutputText(result: unknown) {
   if (!result || typeof result !== 'object') return '';
-  const response = result as { output_text?: unknown; output?: Array<{ content?: Array<{ text?: unknown }> }> };
-  if (typeof response.output_text === 'string' && response.output_text.trim()) return response.output_text;
-  return (response.output || [])
-    .flatMap((item) => item.content || [])
-    .map((content) => typeof content.text === 'string' ? content.text : '')
-    .filter(Boolean)
+  const response = result as Record<string, unknown>;
+  const direct = readResponseText(response.output_text);
+  if (direct) return direct;
+
+  const outputs = Array.isArray(response.output) ? response.output : [];
+  return outputs
+    .flatMap((item) => {
+      if (!item || typeof item !== 'object') return [];
+      const record = item as Record<string, unknown>;
+      const content = Array.isArray(record.content) ? record.content : [record];
+      return content.map(readResponseText).filter(Boolean);
+    })
     .join('\n')
     .trim();
+}
+
+function responseSummary(result: unknown) {
+  if (!result || typeof result !== 'object') return {};
+  const response = result as Record<string, unknown>;
+  const incomplete = response.incomplete_details;
+  return {
+    status: typeof response.status === 'string' ? response.status : undefined,
+    incompleteReason: incomplete && typeof incomplete === 'object' && typeof (incomplete as Record<string, unknown>).reason === 'string'
+      ? (incomplete as Record<string, unknown>).reason
+      : undefined,
+    outputTypes: Array.isArray(response.output)
+      ? response.output.map((item) => item && typeof item === 'object' && typeof (item as Record<string, unknown>).type === 'string'
+        ? (item as Record<string, unknown>).type
+        : 'unknown')
+      : [],
+  };
 }
 
 export async function POST(_: Request, { params }: { params: { leadId: string } }) {
@@ -72,32 +122,59 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
   ].join('\n\n');
 
   try {
-    const response = await fetch('https://api.openai.com/v1/responses', {
+    const model = process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5-mini';
+    const requestAnalysis = (maxOutputTokens: number) => fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
+      signal: AbortSignal.timeout(90_000),
       headers: { Authorization: `Bearer ${process.env.OPENAI_API_KEY}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: process.env.OPENAI_ANALYSIS_MODEL || 'gpt-5-mini',
+        model,
+        ...(model.startsWith('gpt-5') ? { reasoning: { effort: 'low' } } : {}),
         tools: [{ type: 'web_search' }],
         input: prompt,
         text: { format: { type: 'json_schema', name: 'lead_audit', strict: true, schema: analysisSchema } },
-        max_output_tokens: 2600,
+        max_output_tokens: maxOutputTokens,
       }),
     });
+
+    let response = await requestAnalysis(6000);
     if (!response.ok) return NextResponse.json({ error: 'AI analizi şu anda tamamlanamadı. Anahtar ve model ayarını kontrol edin.' }, { status: 502 });
-    const result = await response.json();
-    const output = extractOutputText(result);
-    if (!output) return NextResponse.json({ error: 'AI analizinden okunabilir sonuç alınamadı.' }, { status: 502 });
+    let result: unknown = await response.json();
+    let output = extractOutputText(result);
+
+    // Reasoning and visible JSON share the output budget. Retry both empty and
+    // partially written responses, but only for a token-limit interruption.
+    if (responseSummary(result).status === 'incomplete' && responseSummary(result).incompleteReason === 'max_output_tokens') {
+      console.warn('Lead AI analysis retrying after output limit', responseSummary(result));
+      response = await requestAnalysis(12000);
+      if (!response.ok) return NextResponse.json({ error: 'AI analizi tekrar denemede tamamlanamadı. Mevcut bilgileriniz korundu.' }, { status: 502 });
+      result = await response.json();
+      output = extractOutputText(result);
+    }
+
+    if (responseSummary(result).status && responseSummary(result).status !== 'completed') {
+      console.error('Lead AI analysis did not complete', responseSummary(result));
+      return NextResponse.json({ error: 'AI analizi tamamlanmadan kesildi. Mevcut bilgileriniz korundu; lütfen yeniden deneyin.' }, { status: 502 });
+    }
+    if (!output) {
+      console.error('Lead AI analysis returned no readable output', responseSummary(result));
+      return NextResponse.json({ error: 'AI yanıtı tamamlanamadı. Lütfen tekrar deneyin.' }, { status: 502 });
+    }
     let analysis;
     try {
       analysis = parseAnalysis(output);
     } catch {
+      console.error('Lead AI analysis returned invalid structured output', responseSummary(result));
       return NextResponse.json({ error: 'AI analizi geçerli bir denetim çıktısı üretmedi. Lütfen yeniden deneyin.' }, { status: 502 });
     }
     const { data: updated, error: updateError } = await supabase.from('leads').update({ ...analysis, audit_checked_at: new Date().toISOString().slice(0, 10) }).eq('id', lead.id).select('*').single();
     if (updateError || !updated) return NextResponse.json({ error: 'Analiz kaydedilemedi.' }, { status: 500 });
     await supabase.from('lead_activities').insert({ lead_id: lead.id, user_id: user.id, user_name: profile.name, type: 'Not', description: 'AI destekli kamuya açık dijital görünüm denetimi güncellendi.' });
     return NextResponse.json({ lead: updated });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)) {
+      return NextResponse.json({ error: 'Analiz zaman aşımına uğradı. Mevcut bilgileriniz korundu; lütfen yeniden deneyin.' }, { status: 504 });
+    }
     return NextResponse.json({ error: 'AI analiz isteği işlenemedi.' }, { status: 500 });
   }
 }
