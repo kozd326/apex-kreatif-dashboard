@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { Lead, LeadActivity, TeamMember } from '@/types';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare, BriefcaseBusiness, Edit2, Trash2, FileDown } from 'lucide-react';
+import { X, Phone, Globe, Instagram, Mail, Building, Copy, Check, Plus, MessageSquare, BriefcaseBusiness, Edit2, Trash2, FileDown, Maximize2, Minimize2 } from 'lucide-react';
 import { getFollowUpMessage } from '@/lib/salesPlaybooks';
 import { getContactStrategy, getEvidenceStatus, getFollowUpPlan, getProposalBrief, getTenMinuteCallPlan } from '@/lib/leadIntelligence';
 
@@ -40,6 +40,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
   const [outcome, setOutcome] = useState<NonNullable<Lead['contact_outcome']>>(lead?.contact_outcome || 'İlgileniyor');
   const [outcomeNote, setOutcomeNote] = useState(lead?.outcome_note || '');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   useEffect(() => {
     setOutcome(lead?.contact_outcome || 'İlgileniyor');
@@ -172,7 +173,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex justify-end">
-      <div className="w-full max-w-xl bg-apex-dark border-l border-apex-border h-full flex flex-col justify-between shadow-2xl overflow-hidden">
+      <div className={`w-full ${isExpanded ? 'md:w-[min(1200px,calc(100vw-2rem))] md:max-w-[calc(100vw-2rem)]' : 'max-w-xl'} bg-apex-dark border-l border-apex-border h-full flex flex-col justify-between shadow-2xl overflow-hidden transition-[width,max-width] duration-200`}>
         {/* Drawer Header */}
         <div className="px-6 py-5 border-b border-apex-border bg-apex-card flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -186,6 +187,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button onClick={() => setIsExpanded((current) => !current)} className="hidden md:flex w-8 h-8 rounded-lg bg-apex-dark border border-apex-border items-center justify-center text-apex-muted hover:text-white" title={isExpanded ? 'Dar görünüm' : 'Geniş görünüm'}>{isExpanded ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}</button>
             <button onClick={() => onEditLead(lead)} className="w-8 h-8 rounded-lg bg-apex-dark border border-apex-border flex items-center justify-center text-apex-muted hover:text-apex-orange" title="Düzenle"><Edit2 className="w-3.5 h-3.5" /></button>
             <button onClick={() => onDeleteLead(lead)} className="w-8 h-8 rounded-lg bg-apex-dark border border-apex-border flex items-center justify-center text-apex-muted hover:text-rose-400" title="Sil"><Trash2 className="w-3.5 h-3.5" /></button>
             <button onClick={onClose} className="w-8 h-8 rounded-lg bg-apex-dark border border-apex-border flex items-center justify-center text-apex-muted hover:text-white"><X className="w-4 h-4" /></button>
@@ -193,7 +195,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
         </div>
 
         {/* Drawer Scrollable Content */}
-        <div className="p-6 space-y-6 flex-1 overflow-y-auto">
+        <div className="p-5 md:p-8 space-y-6 flex-1 overflow-y-auto">
           {/* Key Metrics Banner */}
           <div className="grid grid-cols-3 gap-3 bg-apex-card border border-apex-border rounded-xl p-4">
             <div>
