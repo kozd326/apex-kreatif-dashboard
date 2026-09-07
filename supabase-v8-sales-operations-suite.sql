@@ -2,6 +2,14 @@
 -- Run AFTER supabase-v7-client-workspace.sql. No existing CRM record is deleted.
 BEGIN;
 
+-- Kept here as well so a partially applied v7 cannot block this safe migration.
+CREATE OR REPLACE FUNCTION public.crm_can_write() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+ SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role::text IN ('Yönetici','Satış','Operasyon'))
+$$;
+REVOKE ALL ON FUNCTION public.crm_can_write() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.crm_can_write() TO authenticated;
+
 CREATE TABLE IF NOT EXISTS public.crm_outreach_steps (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), lead_id uuid NOT NULL REFERENCES public.leads(id),
  channel text NOT NULL CHECK(channel IN ('Telefon','WhatsApp','Instagram DM','E-posta','Toplantı')),
