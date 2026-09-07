@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Shell } from '@/components/layout/Shell';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_TEAM, INITIAL_LEADS } from '@/lib/mockData';
-import { Lead, TeamMember, UserRole } from '@/types';
+import { Lead, Task, TeamMember, TimeEntry, UserRole } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { ShieldCheck, UserCheck, Edit2 } from 'lucide-react';
 
@@ -14,6 +14,8 @@ export default function TeamPage() {
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(INITIAL_TEAM);
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
 
   const loadLiveData = useCallback(async () => {
@@ -25,8 +27,15 @@ export default function TeamPage() {
     const { data: profilesData } = await supabase.from('profiles').select('*').order('created_at', { ascending: true });
     if (profilesData && profilesData.length > 0) setTeamMembers(profilesData as TeamMember[]);
 
-    const { data: leadsData } = await supabase.from('leads').select('*');
+    const [leadsResult, tasksResult, timeResult] = await Promise.all([
+      supabase.from('leads').select('*').is('archived_at', null),
+      supabase.from('tasks').select('*'),
+      supabase.from('crm_time_entries').select('*').gte('entry_date', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10)),
+    ]);
+    const leadsData = leadsResult.data;
     if (leadsData) setLeads(leadsData as Lead[]);
+    if (tasksResult.data) setTasks(tasksResult.data as Task[]);
+    if (timeResult.data) setTimeEntries(timeResult.data as TimeEntry[]);
 
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
@@ -86,6 +95,8 @@ export default function TeamPage() {
             const wonLeads = memberLeads.filter((l) => l.status === 'Kazanıldı');
             const totalDealValue = memberLeads.reduce((acc, l) => acc + l.estimated_deal_value, 0);
             const wonValue = wonLeads.reduce((acc, l) => acc + l.estimated_deal_value, 0);
+            const openTasks = tasks.filter((task) => task.assigned_to === member.id && task.status !== 'Tamamlandı').length;
+            const monthHours = timeEntries.filter((entry) => entry.user_id === member.id).reduce((total, entry) => total + Number(entry.hours), 0);
 
             return (
               <div
@@ -142,6 +153,10 @@ export default function TeamPage() {
                   <div className="flex justify-between items-center py-1">
                     <span className="text-apex-muted">Kazanılan Ciro:</span>
                     <span className="font-bold font-mono text-emerald-400">{formatCurrency(wonValue)}</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1 border-t border-apex-border/40">
+                    <span className="text-apex-muted">Açık Görev / Bu Ay Saat:</span>
+                    <span className="font-bold font-mono text-apex-orange">{openTasks} / {monthHours.toFixed(1)} sa.</span>
                   </div>
                 </div>
               </div>
