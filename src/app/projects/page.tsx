@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { Project, ProjectChecklistItem, ProjectStatus, PaymentStatus } from '@/types';
+import { Project, ProjectChecklistItem, ProjectStatus, PaymentStatus, TimeEntry } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_PROJECTS } from '@/lib/mockData';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -17,6 +17,8 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [checklists, setChecklists] = useState<ProjectChecklistItem[]>([]);
   const [editingProject, setEditingProject] = useState<Project | null>(null);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [timeDraft, setTimeDraft] = useState<Record<string, { hours: string; cost: string; description: string }>>({});
 
   const loadLiveData = useCallback(async () => {
     if (!isConfigured) {
@@ -24,12 +26,14 @@ export default function ProjectsPage() {
       return;
     }
 
-    const [projectsResult, checklistResult] = await Promise.all([
-      supabase.from('projects').select('*').order('created_at', { ascending: false }),
+    const [projectsResult, checklistResult, timeResult] = await Promise.all([
+      supabase.from('projects').select('*').is('archived_at', null).order('created_at', { ascending: false }),
       supabase.from('project_checklists').select('*').order('created_at', { ascending: true }),
+      supabase.from('crm_time_entries').select('*').order('created_at', { ascending: false }),
     ]);
     if (projectsResult.data) setProjects(projectsResult.data as Project[]);
     if (checklistResult.data) setChecklists(checklistResult.data as ProjectChecklistItem[]);
+    if (timeResult.data) setTimeEntries(timeResult.data as TimeEntry[]);
   }, [isConfigured, supabase]);
 
   useEffect(() => {
@@ -91,11 +95,20 @@ export default function ProjectsPage() {
 
   const deleteProject = async (project: Project) => {
     if (!isConfigured) return;
-    const confirmed = window.confirm(`“${project.project_name}” projesini silmek istediğine emin misin?\n\nBu işlem proje görevlerini, tahsilat planını ve teslim kontrol listesini de siler. Finans gider kayıtları ve marka kartı korunur, projeyle bağlantısı kaldırılır.`);
+    const confirmed = window.confirm(`“${project.project_name}” projesini arşive almak istiyor musun?\n\nKayıt, tahsilatlar, maliyetler ve geçmiş korunur; gerektiğinde geri yüklenebilir.`);
     if (!confirmed) return;
-    const { error } = await supabase.from('projects').delete().eq('id', project.id);
-    if (error) { alert(`Proje silinemedi: ${error.message}`); return; }
+    const { error } = await supabase.from('projects').update({ archived_at: new Date().toISOString() }).eq('id', project.id);
+    if (error) { alert(`Proje arşivlenemedi: ${error.message}`); return; }
     loadLiveData();
+  };
+
+  const addTime = async (projectId: string) => {
+    const draft = timeDraft[projectId];
+    const hours = Number(draft?.hours); const hourlyCost = Number(draft?.cost || 0);
+    if (!hours || hours <= 0 || hours > 24) { alert('Geçerli bir çalışma süresi yazın.'); return; }
+    const { error } = await supabase.from('crm_time_entries').insert({ project_id: projectId, hours, hourly_cost: hourlyCost, description: draft?.description || '', revision_work: false });
+    if (error) { alert(`Süre kaydedilemedi: ${error.message}`); return; }
+    setTimeDraft({ ...timeDraft, [projectId]: { hours: '', cost: '', description: '' } }); loadLiveData();
   };
 
   return (
@@ -192,6 +205,11 @@ export default function ProjectsPage() {
                     <span className="text-apex-muted text-[10px] block">Teslimat Tarihi</span>
                     <span className="text-white font-bold">{formatDate(proj.deadline)}</span>
                   </div>
+                </div>
+
+                <div className="border-t border-apex-border pt-3 space-y-2">
+                  <div className="flex justify-between text-[10px] uppercase tracking-wider text-apex-muted"><span>Zaman & iç maliyet</span><span>{timeEntries.filter(entry => entry.project_id === proj.id).reduce((sum, entry) => sum + Number(entry.hours), 0).toFixed(1)} saat · {formatCurrency(timeEntries.filter(entry => entry.project_id === proj.id).reduce((sum, entry) => sum + Number(entry.hours) * Number(entry.hourly_cost), 0))}</span></div>
+                  <div className="grid grid-cols-[70px_90px_1fr_auto] gap-2"><input value={timeDraft[proj.id]?.hours || ''} onChange={e => setTimeDraft({ ...timeDraft, [proj.id]: { ...(timeDraft[proj.id] || { cost: '', description: '' }), hours: e.target.value } })} placeholder="Saat" inputMode="decimal" className="bg-apex-dark border border-apex-border rounded-lg px-2 text-xs text-white"/><input value={timeDraft[proj.id]?.cost || ''} onChange={e => setTimeDraft({ ...timeDraft, [proj.id]: { ...(timeDraft[proj.id] || { hours: '', description: '' }), cost: e.target.value } })} placeholder="₺/saat" inputMode="decimal" className="bg-apex-dark border border-apex-border rounded-lg px-2 text-xs text-white"/><input value={timeDraft[proj.id]?.description || ''} onChange={e => setTimeDraft({ ...timeDraft, [proj.id]: { ...(timeDraft[proj.id] || { hours: '', cost: '' }), description: e.target.value } })} placeholder="Yapılan iş" className="bg-apex-dark border border-apex-border rounded-lg px-2 text-xs text-white"/><button onClick={() => addTime(proj.id)} className="border border-apex-orange/60 text-apex-orange rounded-lg px-2 text-xs font-bold">Ekle</button></div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-xs">
