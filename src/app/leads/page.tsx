@@ -37,7 +37,7 @@ export default function LeadsPage() {
       return;
     }
 
-    const { data: leadsData } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+    const { data: leadsData } = await supabase.from('leads').select('*').is('archived_at', null).order('created_at', { ascending: false });
     if (leadsData) setLeads(leadsData as Lead[]);
 
     const { data: actsData } = await supabase.from('lead_activities').select('*').order('created_at', { ascending: false });
@@ -185,10 +185,10 @@ export default function LeadsPage() {
 
   const handleDeleteLead = async (lead: Lead) => {
     if (!isConfigured) return;
-    const confirmed = window.confirm(`“${lead.company_name}” adayını silmek istediğine emin misin?\n\nAdayın aktivite geçmişi silinir. Mevcut teklif ve projeler korunur, yalnızca bu adayla bağlantıları kaldırılır.`);
+    const confirmed = window.confirm(`“${lead.company_name}” adayını arşive almak istiyor musun?\n\nKayıt, geçmişi ve bağlantıları korunur; daha sonra geri yüklenebilir.`);
     if (!confirmed) return;
-    const { error } = await supabase.from('leads').delete().eq('id', lead.id);
-    if (error) { alert(`Aday silinemedi: ${error.message}`); return; }
+    const { error } = await supabase.from('leads').update({ archived_at: new Date().toISOString() }).eq('id', lead.id);
+    if (error) { alert(`Aday arşivlenemedi: ${error.message}`); return; }
     if (selectedLead?.id === lead.id) setSelectedLead(null);
     if (editingLead?.id === lead.id) { setEditingLead(null); setIsAddModalOpen(false); }
     loadLiveData();
@@ -217,20 +217,21 @@ export default function LeadsPage() {
     loadLiveData();
   };
 
-  const handleLogOutcome = async (lead: Lead, outcome: NonNullable<Lead['contact_outcome']>, note: string) => {
+  const handleLogOutcome = async (lead: Lead, outcome: NonNullable<Lead['contact_outcome']>, note: string, channel: 'Telefon' | 'WhatsApp' | 'Instagram DM' | 'E-posta' | 'Toplantı') => {
     if (!isConfigured) return;
     const today = new Date();
     const next = new Date(today);
-    const status: LeadStatus = outcome === 'Teklif İstedi' ? 'Teklif Gönderildi' : outcome === 'İlgileniyor' ? 'Takipte' : outcome === 'Olumsuz' ? 'Kaybedildi' : lead.status === 'Yeni' ? 'İlk Temas' : lead.status;
+    const status: LeadStatus = outcome === 'İlgileniyor' || outcome === 'Teklif İstedi' ? 'Takipte' : outcome === 'Olumsuz' ? 'Kaybedildi' : lead.status === 'Yeni' ? 'İlk Temas' : lead.status;
     if (outcome === 'Ulaşılamadı') next.setDate(today.getDate() + 2);
     if (outcome === 'İlgileniyor') next.setDate(today.getDate() + 3);
     if (outcome === 'Teklif İstedi') next.setDate(today.getDate() + 1);
     if (outcome === 'Daha Sonra Ara') next.setDate(today.getDate() + 7);
     const nextDate = outcome === 'Olumsuz' ? null : next.toISOString().slice(0, 10);
-    await Promise.all([
-      supabase.from('leads').update({ contact_outcome: outcome, outcome_note: note || null, status, last_contact_date: today.toISOString().slice(0, 10), next_step_date: nextDate }).eq('id', lead.id),
-      supabase.from('lead_activities').insert({ lead_id: lead.id, user_id: currentUser?.id, user_name: currentUser?.name || 'Ekip Üyesi', type: 'Arama', description: `${outcome}${note ? ` — ${note}` : ''}` }),
-    ]);
+    const { error } = await supabase.rpc('crm_log_contact', { p_id: lead.id, p_channel: channel, p_outcome: outcome, p_note: note || 'Sonuç kaydedildi.', p_next: nextDate, p_version: 'manual' });
+    if (error) {
+      alert(`Sonuç kaydedilemedi: ${error.message}`);
+      return;
+    }
     loadLiveData();
     setSelectedLead({ ...lead, contact_outcome: outcome, outcome_note: note, status, next_step_date: nextDate || undefined });
   };

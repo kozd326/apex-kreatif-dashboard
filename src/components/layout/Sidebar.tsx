@@ -21,12 +21,14 @@ import {
   Goal,
   CircleHelp,
   Send,
+  PanelsTopLeft,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Müşteri Adayları', href: '/leads', icon: Users },
-  { name: 'Bugün Aranacaklar', href: '/today-calls', icon: PhoneCall, badge: 'Öncelikli' },
+  { name: 'Bugünkü İşlerim', href: '/today-calls', icon: PhoneCall, badge: 'Öncelikli' },
+  { name: 'Müşteri Çalışma Alanı', href: '/workspace', icon: PanelsTopLeft },
   { name: 'Teklifler', href: '/proposals', icon: FileSpreadsheet },
   { name: 'Satış & Kârlılık', href: '/sales-control', icon: ChartNoAxesCombined },
   { name: 'Tahsilatlar', href: '/payments', icon: WalletCards },

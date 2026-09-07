@@ -35,8 +35,11 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const isLoginPage = request.nextUrl.pathname.startsWith('/login');
+  // Customer shares use an opaque, expiring token verified by a narrowly scoped
+  // RPC; they must not inherit the team dashboard session requirement.
+  const isClientPortal = request.nextUrl.pathname.startsWith('/portal/');
 
-  if (!user && !isLoginPage) {
+  if (!user && !isLoginPage && !isClientPortal) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

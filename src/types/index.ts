@@ -65,6 +65,10 @@ export interface Lead {
   notes?: string;
   contact_outcome?: 'Ulaşılamadı' | 'İlgileniyor' | 'Teklif İstedi' | 'Daha Sonra Ara' | 'Olumsuz';
   outcome_note?: string;
+  archived_at?: string;
+  do_not_contact?: boolean;
+  contact_channels?: Record<string, { value?: string; source?: string; checked_at?: string; verified?: boolean }>;
+  sales_context?: { goal?: string; budget?: string; decision_maker?: string; next_date?: string; reply_type?: string };
   created_at: string;
   updated_at: string;
 }
@@ -77,7 +81,14 @@ export interface LeadActivity {
   type: 'Arama' | 'Toplantı' | 'Not' | 'E-posta' | 'Teklif Gönderildi' | 'Durum Değişikliği';
   description: string;
   created_at: string;
+  channel?: string;
+  outcome?: string;
+  message_version?: string;
 }
+
+export interface CrmDocument { id: string; entity_type: 'lead' | 'project' | 'proposal'; entity_id: string; content: Record<string, unknown>; revision: number; updated_at: string; }
+export interface AnalysisJob { id: string; lead_id: string; status: 'queued' | 'running' | 'review' | 'applied' | 'failed'; result?: Record<string, unknown>; error?: string; created_at: string; updated_at: string; }
+export interface TimeEntry { id: string; project_id: string; user_id: string; entry_date: string; hours: number; hourly_cost: number; description: string; revision_work: boolean; created_at: string; }
 
 export type ProposalStatus = 'Taslak' | 'Gönderildi' | 'Revizyon' | 'Kabul' | 'Reddedildi';
 

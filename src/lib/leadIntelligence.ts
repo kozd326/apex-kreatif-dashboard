@@ -29,6 +29,18 @@ export const getLeadReadinessScore = (lead: Lead) => {
   return Math.min(100, evidence + contact + salesPrep + priority);
 };
 
+/** This measures how ready the research record is, not how likely the deal is to close. */
+export const getResearchCompleteness = (lead: Lead) => getLeadReadinessScore(lead);
+
+export const getSalesPriorityScore = (lead: Lead) => {
+  if (lead.do_not_contact || lead.status === 'Kaybedildi' || lead.status === 'Kazanıldı') return 0;
+  const overdue = lead.next_step_date && new Date(`${lead.next_step_date}T00:00:00`).getTime() < new Date().setHours(0, 0, 0, 0) ? 35 : 0;
+  const stage = lead.status === 'Görüşme Planlandı' ? 30 : lead.status === 'Teklif Gönderildi' ? 26 : lead.status === 'Takipte' ? 18 : lead.status === 'İlk Temas' ? 12 : 8;
+  const priority = lead.priority === 'Yüksek' ? 25 : lead.priority === 'Orta' ? 13 : 5;
+  const owner = lead.assigned_to ? 6 : 0;
+  return Math.min(100, overdue + stage + priority + owner);
+};
+
 export const getEvidenceStatus = (lead: Lead) => {
   const sourceCount = (lead.audit_sources || '').split(/\n|,/).map((source) => source.trim()).filter(Boolean).length;
   if (sourceCount >= 2 && lead.audit_checked_at) return { label: 'Kaynaklı analiz', tone: 'text-emerald-400', detail: `${sourceCount} kamuya açık kaynak · ${lead.audit_checked_at}` };
@@ -41,8 +53,10 @@ export const getContactStrategy = (lead: Lead): ContactStrategy => {
   const email = hasVerifiedEmail(lead);
   const instagram = hasInstagram(lead);
   const researched = hasAudit(lead);
+  const channels = lead.contact_channels || {};
+  const proven = (channel: string) => channels[channel]?.verified === true;
 
-  if (phone && (lead.priority === 'Yüksek' || lead.status === 'Görüşme Planlandı')) {
+  if (phone && proven('Telefon') && (lead.priority === 'Yüksek' || lead.status === 'Görüşme Planlandı')) {
     return {
       primary: 'Telefon',
       reason: 'Doğrulanmış telefon ve yüksek/aktif satış aşaması hızlı geri dönüş için en uygun kombinasyon.',
@@ -50,7 +64,7 @@ export const getContactStrategy = (lead: Lead): ContactStrategy => {
     };
   }
 
-  if (email && researched) {
+  if (email && proven('E-posta') && researched) {
     return {
       primary: 'E-posta',
       reason: 'Kaynaklı bir mini denetim hazır; e-posta ile yazılı kanıt ve kısa görüşme teklifi paylaşmak daha güçlü olur.',
@@ -58,7 +72,7 @@ export const getContactStrategy = (lead: Lead): ContactStrategy => {
     };
   }
 
-  if (instagram) {
+  if (instagram && (proven('Instagram DM') || !phone && !email)) {
     return {
       primary: 'Instagram DM',
       reason: 'Instagram hesabı mevcut; ilk izni kısa ve baskısız bir DM ile almak, ardından görüşmeye taşımak daha doğal olur.',
@@ -66,7 +80,7 @@ export const getContactStrategy = (lead: Lead): ContactStrategy => {
     };
   }
 
-  if (phone) {
+  if (phone && proven('Telefon')) {
     return {
       primary: 'Telefon',
       reason: 'Ulaşılabilir doğrulanmış kanal telefon; önce 30 saniyelik izin isteyin, denetimi arama sonrasına bırakın.',
@@ -74,7 +88,7 @@ export const getContactStrategy = (lead: Lead): ContactStrategy => {
     };
   }
 
-  if (email) {
+  if (email && proven('E-posta')) {
     return {
       primary: 'E-posta',
       reason: 'Şu an kullanılabilir tek doğrulanmış kanal e-posta.',
@@ -84,7 +98,7 @@ export const getContactStrategy = (lead: Lead): ContactStrategy => {
 
   return {
     primary: 'Ön araştırma',
-    reason: 'Doğrulanmış bir iletişim kanalı yok; rastgele mesaj yerine işletmenin resmi kanallarını önce teyit etmek gerekir.',
+    reason: 'Bir iletişim bilgisi görünse bile kaynak ve kontrol tarihi kaydedilmedi; rastgele mesaj yerine resmi kanalı önce teyit etmek gerekir.',
     steps: ['Google İşletme Profili ve resmi web adresini teyit edin.', 'Telefon veya e-posta ekleyin.', 'Sonra AI analizini yenileyip kişisel temas başlatın.'],
   };
 };

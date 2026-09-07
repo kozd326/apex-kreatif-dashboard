@@ -1,232 +1,41 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Shell } from '@/components/layout/Shell';
 import { Lead, TeamMember } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
-import { INITIAL_LEADS } from '@/lib/mockData';
-import { INITIAL_TEMPLATES } from '@/lib/templatesData';
-import { formatCurrency, formatDate, isOverdue, isToday } from '@/lib/utils';
-import { getSectorPlaybook } from '@/lib/salesPlaybooks';
-import { PhoneCall, Check, Copy, Flame, ExternalLink, FileText } from 'lucide-react';
+import { getContactStrategy, getResearchCompleteness, getSalesPriorityScore } from '@/lib/leadIntelligence';
+import { Clock3, Mail, MessageCircle, PhoneCall, AlertTriangle, ClipboardCheck } from 'lucide-react';
+
+type Queue = 'Telefon' | 'Instagram DM' | 'E-posta' | 'Takip';
+const actionFor = (lead: Lead): Queue => {
+  if (lead.status === 'Teklif Gönderildi' || lead.status === 'Takipte' || lead.next_step_date) return 'Takip';
+  const channel = getContactStrategy(lead).primary;
+  return channel === 'Telefon' ? 'Telefon' : channel === 'E-posta' ? 'E-posta' : 'Instagram DM';
+};
+const iconFor = (queue: Queue) => queue === 'Telefon' ? PhoneCall : queue === 'E-posta' ? Mail : queue === 'Instagram DM' ? MessageCircle : ClipboardCheck;
+const colorFor = (queue: Queue) => queue === 'Telefon' ? 'text-rose-300 border-rose-900/70' : queue === 'E-posta' ? 'text-sky-300 border-sky-900/70' : queue === 'Instagram DM' ? 'text-violet-300 border-violet-900/70' : 'text-amber-300 border-amber-900/70';
 
 export default function TodayCallsPage() {
-  const supabase = createClient();
-  const isConfigured = isSupabaseConfigured();
-
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-
-  const loadLiveData = useCallback(async () => {
-    if (!isConfigured) {
-      setLeads(INITIAL_LEADS);
-      return;
-    }
-
-    const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+  const supabase = createClient(); const configured = isSupabaseConfigured();
+  const [leads, setLeads] = useState<Lead[]>([]); const [user, setUser] = useState<TeamMember | null>(null); const [limit, setLimit] = useState(16); const [busy, setBusy] = useState('');
+  const load = useCallback(async () => {
+    if (!configured) return;
+    const [{ data }, { data: { session } }] = await Promise.all([
+      supabase.from('leads').select('*').is('archived_at', null).not('status', 'in', '(Kazanıldı,Kaybedildi)').order('next_step_date', { ascending: true, nullsFirst: false }),
+      supabase.auth.getSession(),
+    ]);
     if (data) setLeads(data as Lead[]);
-
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      const { data: prof } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-      if (prof) setCurrentUser(prof as TeamMember);
-    }
-  }, [isConfigured, supabase]);
-
-  useEffect(() => {
-    loadLiveData();
-
-    if (isConfigured) {
-      const channel = supabase
-        .channel('today-calls-realtime')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadLiveData())
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [isConfigured, loadLiveData, supabase]);
-
-  const callQueue = leads.filter((lead) => {
-    if (lead.status === 'Kazanıldı' || lead.status === 'Kaybedildi') return false;
-    const isUrgentDate = isToday(lead.next_step_date) || isOverdue(lead.next_step_date);
-    const isHighPri = lead.priority === 'Yüksek';
-    const isNew = lead.status === 'Yeni';
-    const isPendingProposal = lead.status === 'Teklif Gönderildi';
-    return isUrgentDate || isHighPri || isNew || isPendingProposal;
-  });
-
-  const handleQuickLogCall = async (lead: Lead) => {
-    if (!isConfigured) return;
-
-    // Log activity
-    await supabase.from('lead_activities').insert({
-      lead_id: lead.id,
-      user_id: currentUser?.id,
-      user_name: currentUser?.name || 'Ekip Üyesi',
-      type: 'Arama',
-      description: 'Bugün aranacaklar listesi üzerinden telefon görüşmesi gerçekleştirildi.',
-    });
-
-    // Update status to 'İlk Temas' if 'Yeni'
-    const newStatus = lead.status === 'Yeni' ? 'İlk Temas' : lead.status;
-    const todayStr = new Date().toISOString().split('T')[0];
-
-    await supabase.from('leads').update({
-      status: newStatus,
-      last_contact_date: todayStr,
-    }).eq('id', lead.id);
-
-    loadLiveData();
-  };
-
-  const handleCopyScript = (text: string, id: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
-  return (
-    <Shell>
-      <div className="space-y-6">
-        <div className="flex justify-between items-center bg-apex-card border border-apex-border rounded-2xl p-6 shadow-xl">
-          <div>
-            <div className="flex items-center gap-2 text-apex-orange text-xs font-bold uppercase tracking-wider mb-1">
-              <Flame className="w-4 h-4" />
-              <span>Otomatik Akıllı Çağrı Sırası</span>
-            </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">Bugün Aranacaklar Listesi</h1>
-            <p className="text-xs text-apex-muted mt-1">
-              Yüksek öncelikli, tarihi gelmiş veya gecikmiş adaylar otomatik olarak sıralanır.
-            </p>
-          </div>
-
-          <div className="text-right">
-            <span className="text-3xl font-black text-apex-orange font-mono">{callQueue.length}</span>
-            <span className="text-xs text-apex-muted block">Aranacak Aday</span>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          {callQueue.length === 0 ? (
-            <div className="bg-apex-card border border-apex-border rounded-2xl p-12 text-center space-y-2">
-              <PhoneCall className="w-10 h-10 text-emerald-400 mx-auto opacity-80" />
-              <h3 className="text-base font-bold text-white">Harika! Sıra Temizlendi</h3>
-              <p className="text-xs text-apex-muted">Bugün için yapılması gereken acil arama bulunmuyor.</p>
-            </div>
-          ) : (
-            callQueue.map((lead) => {
-              const overdue = isOverdue(lead.next_step_date);
-              const defaultScript = lead.first_contact_text || INITIAL_TEMPLATES[1].content;
-              const playbook = getSectorPlaybook(lead);
-              const opening = lead.call_opening || playbook.call_opening;
-              const questions = lead.discovery_questions || playbook.discovery_questions;
-              const findings = [lead.website_findings, lead.social_findings, lead.booking_findings, lead.brand_findings].filter(Boolean);
-              const conversationPack = [
-                `${lead.company_name} · ${lead.sector}`,
-                `ARAMA AÇILIŞI:\n${opening}`,
-                `İHTİYAÇ SORULARI:\n${questions}`,
-                lead.next_best_action && `SONRAKİ ADIM:\n${lead.next_best_action}`,
-                `İLK TEMAS METNİ:\n${defaultScript}`,
-              ].filter(Boolean).join('\n\n');
-
-              return (
-                <div
-                  key={lead.id}
-                  className={`bg-apex-card border rounded-2xl p-6 transition-all space-y-4 shadow-xl ${
-                    overdue
-                      ? 'border-rose-800/80 bg-rose-950/10'
-                      : lead.priority === 'Yüksek'
-                      ? 'border-apex-orange/40'
-                      : 'border-apex-border'
-                  }`}
-                >
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-apex-border pb-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 rounded-xl bg-apex-orange/15 border border-apex-orange/30 flex items-center justify-center font-bold text-apex-orange">
-                        <PhoneCall className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-lg font-bold text-white">{lead.company_name}</h3>
-                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-apex-dark border border-apex-border text-white">
-                            {lead.status}
-                          </span>
-                        </div>
-                        <p className="text-xs text-apex-muted">
-                          {lead.sector} • {lead.city_district} • Karar Verici: <strong className="text-white">{lead.decision_maker}</strong>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 w-full md:w-auto justify-end">
-                      <a href={`/leads?search=${encodeURIComponent(lead.company_name)}`} className="flex items-center gap-1 text-[11px] text-apex-muted hover:text-apex-orange">
-                        <ExternalLink className="w-3.5 h-3.5" /> Aday kartı
-                      </a>
-                      <a
-                        href={`tel:${lead.phone}`}
-                        onClick={() => handleQuickLogCall(lead)}
-                        className="flex items-center gap-2 bg-apex-orange hover:bg-apex-orange-hover text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors shadow-lg shadow-apex-orange/20"
-                      >
-                        <PhoneCall className="w-4 h-4" />
-                        <span>{lead.phone} Ara</span>
-                      </a>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div className="bg-apex-dark border border-apex-border rounded-xl p-4 space-y-2">
-                      <span className="text-apex-orange font-bold block text-[11px] uppercase tracking-wider">
-                        Görüşme Neden & Proje Fırsatı:
-                      </span>
-                      <p className="text-neutral-300 leading-relaxed font-semibold">
-                        {lead.contact_reason || lead.recommended_package}
-                      </p>
-                      <div className="flex justify-between items-center pt-2 border-t border-apex-border text-[11px] font-mono">
-                        <span className="text-apex-muted">Tahmini Değer:</span>
-                        <span className="text-emerald-400 font-bold">{formatCurrency(lead.estimated_deal_value)}</span>
-                      </div>
-                    </div>
-
-                    <div className="bg-apex-dark border border-apex-border rounded-xl p-4 space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-apex-orange font-bold text-[11px] uppercase tracking-wider">
-                          Önerilen Açılış Metni:
-                        </span>
-                        <button
-                          onClick={() => handleCopyScript(defaultScript, lead.id)}
-                          className="flex items-center gap-1 text-[11px] text-apex-orange hover:underline font-semibold"
-                        >
-                          {copiedId === lead.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                          <span>{copiedId === lead.id ? 'Kopyalandı' : 'Kopyala'}</span>
-                        </button>
-                      </div>
-                      <p className="text-neutral-300 font-mono text-[11px] leading-relaxed line-clamp-3">
-                        {defaultScript}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-                    <div className="bg-apex-dark border border-apex-border rounded-xl p-4 space-y-2">
-                      <span className="text-apex-orange font-bold block text-[11px] uppercase tracking-wider">Arama açılışı & ihtiyaç soruları</span>
-                      <p className="text-neutral-200 leading-relaxed">{opening}</p>
-                      <p className="text-apex-muted leading-relaxed whitespace-pre-wrap border-t border-apex-border pt-2">{questions}</p>
-                    </div>
-                    <div className="bg-apex-dark border border-apex-border rounded-xl p-4 space-y-2">
-                      <div className="flex justify-between gap-3"><span className="text-apex-orange font-bold text-[11px] uppercase tracking-wider">Denetim bulguları</span><button onClick={() => handleCopyScript(conversationPack, `pack-${lead.id}`)} className="text-[11px] text-apex-orange hover:underline"><FileText className="w-3 h-3 inline mr-1" />{copiedId === `pack-${lead.id}` ? 'Paket kopyalandı' : 'Paketi kopyala'}</button></div>
-                      {findings.length > 0 ? <ul className="space-y-1 text-neutral-300 leading-relaxed">{findings.slice(0, 3).map((finding, index) => <li key={index}>• {finding}</li>)}</ul> : <p className="text-apex-muted">Henüz kanıtlı denetim bulgusu girilmemiş. Aday kartından ekleyebilirsiniz.</p>}
-                      {lead.status === 'Teklif Gönderildi' && <a href={`/proposals?lead=${encodeURIComponent(lead.id)}`} className="inline-flex mt-2 text-apex-orange hover:underline font-semibold">Teklif kaydını aç</a>}
-                    </div>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </Shell>
-  );
+    if (session?.user) { const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single(); if (profile) setUser(profile as TeamMember); }
+  }, [configured, supabase]);
+  useEffect(() => { load(); }, [load]);
+  const rows = useMemo(() => leads.map((lead) => ({ lead, queue: actionFor(lead), priority: getSalesPriorityScore(lead), research: getResearchCompleteness(lead) })).sort((a,b) => b.priority-a.priority).slice(0, limit), [leads, limit]);
+  const totals = rows.reduce<Record<Queue, number>>((acc, row) => { acc[row.queue] += 1; return acc; }, { Telefon:0, 'Instagram DM':0, 'E-posta':0, Takip:0 });
+  const claim = async (lead: Lead) => { setBusy(lead.id); const { error } = await supabase.rpc('crm_claim_lead', { p_id: lead.id }); setBusy(''); if (error) alert(error.message); else load(); };
+  return <Shell><div className="space-y-6">
+    <section className="rounded-2xl border border-apex-border bg-apex-card p-5 md:p-7 flex flex-col lg:flex-row gap-6 justify-between"><div><p className="text-[11px] uppercase tracking-[.18em] font-bold text-apex-orange">Bugünkü İşlerim</p><h1 className="text-2xl font-black text-white mt-1">4–5 saatlik satış çalışma sırası</h1><p className="text-xs text-apex-muted mt-2 max-w-xl">Sıra gerçek takip tarihi ve satış önceliğine göre oluşur. Arama düğmesi yalnızca telefon açar; sonuç ancak görüşmeden sonra kaydedilir.</p></div><div className="flex gap-4 items-end"><label className="text-xs text-apex-muted">Günlük kapasite<select value={limit} onChange={e=>setLimit(Number(e.target.value))} className="block mt-1 bg-apex-dark border border-apex-border rounded-lg p-2 text-white"><option value={12}>12 aksiyon · ~4 saat</option><option value={16}>16 aksiyon · ~5 saat</option><option value={20}>20 aksiyon · yoğun gün</option></select></label><div className="text-right"><p className="font-mono font-black text-3xl text-apex-orange">{rows.length}</p><p className="text-[10px] text-apex-muted">planlanan aksiyon</p></div></div></section>
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">{(Object.keys(totals) as Queue[]).map(queue=>{ const Icon=iconFor(queue); return <div key={queue} className={`rounded-xl border bg-apex-card p-4 ${colorFor(queue)}`}><Icon className="w-4 h-4"/><p className="mt-2 font-black text-white text-xl">{totals[queue]}</p><p className="text-[11px] text-apex-muted">{queue}</p></div>})}</div>
+    <section className="rounded-2xl border border-apex-border overflow-hidden"><div className="p-4 bg-apex-card flex items-center gap-2"><Clock3 className="w-4 h-4 text-apex-orange"/><h2 className="text-sm font-bold text-white">Eylem sırası</h2></div><div className="divide-y divide-apex-border">{rows.map(({lead,queue,priority,research})=>{const Icon=iconFor(queue); const strategy=getContactStrategy(lead); const mine=lead.assigned_to && lead.assigned_to===user?.id; return <article key={lead.id} className="p-4 md:p-5 bg-apex-dark flex flex-col md:flex-row gap-4 md:items-center"><div className={`w-9 h-9 shrink-0 rounded-lg border flex items-center justify-center ${colorFor(queue)}`}><Icon className="w-4 h-4"/></div><div className="min-w-0 flex-1"><div className="flex gap-2 items-center"><h3 className="font-bold text-white truncate">{lead.company_name}</h3><span className="text-[10px] border border-apex-border rounded px-1.5 py-0.5 text-apex-muted">{queue}</span></div><p className="text-xs text-apex-muted mt-1">{strategy.reason}</p><p className="text-[11px] text-apex-muted mt-2">Satış önceliği <b className="text-white">{priority}/100</b> · Araştırma tamamlığı <b className="text-white">{research}/100</b>{lead.next_step_date ? ` · Takip: ${lead.next_step_date}` : ''}</p></div><div className="flex gap-2 shrink-0 items-center">{queue==='Telefon' && lead.phone && <a href={`tel:${lead.phone.replace(/\s/g,'')}`} className="px-3 py-2 rounded-lg bg-apex-orange text-xs font-bold text-white">Ara</a>}{!lead.assigned_to || mine ? <button onClick={()=>claim(lead)} disabled={busy===lead.id} className="px-3 py-2 rounded-lg border border-apex-border text-xs text-white">{mine?'Sende':'Üstlen'}</button> : <span className="text-[11px] text-apex-muted">{lead.assigned_name || 'Ekip'} üzerinde</span>}<Link href={`/leads?search=${encodeURIComponent(lead.company_name)}`} className="px-3 py-2 rounded-lg border border-apex-orange/50 text-apex-orange text-xs font-bold">Hazırla</Link></div></article>})}{!rows.length&&<div className="p-12 text-center text-apex-muted text-sm"><AlertTriangle className="w-7 h-7 mx-auto mb-3"/>Bugün için açık satış aksiyonu yok.</div>}</div></section>
+  </div></Shell>;
 }
