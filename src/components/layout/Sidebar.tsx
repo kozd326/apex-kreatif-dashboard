@@ -22,26 +22,38 @@ import {
   CircleHelp,
   Send,
   PanelsTopLeft,
+  Route,
+  HeartHandshake,
 } from 'lucide-react';
 
-const NAV_ITEMS = [
+const NAV_GROUPS = [
+  { label: 'SATIŞ', items: [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Müşteri Adayları', href: '/leads', icon: Users },
   { name: 'Bugünkü İşlerim', href: '/today-calls', icon: PhoneCall, badge: 'Öncelikli' },
+  { name: 'Satış Akışları', href: '/sequences', icon: Route },
   { name: 'Müşteri Çalışma Alanı', href: '/workspace', icon: PanelsTopLeft },
   { name: 'Teklifler', href: '/proposals', icon: FileSpreadsheet },
   { name: 'Satış & Kârlılık', href: '/sales-control', icon: ChartNoAxesCombined },
+  ] },
+  { label: 'OPERASYON', items: [
+  { name: 'Projeler', href: '/projects', icon: Briefcase },
+  { name: 'Görevler', href: '/tasks', icon: CheckSquare },
+  { name: 'Müşteri Yaşam Döngüsü', href: '/lifecycle', icon: HeartHandshake },
+  { name: 'Mesaj Gönderimi', href: '/outreach', icon: Send },
+  ] },
+  { label: 'YÖNETİM', items: [
   { name: 'Tahsilatlar', href: '/payments', icon: WalletCards },
   { name: 'Finans & İşletme', href: '/finance', icon: Landmark },
   { name: 'Müşteri & Markalar', href: '/brands', icon: ContactRound },
   { name: 'Hedefler & Raporlar', href: '/reports', icon: Goal },
+  ] },
+  { label: 'ARAÇLAR', items: [
   { name: 'Kullanım Rehberi', href: '/guide', icon: CircleHelp },
-  { name: 'Mesaj Gönderimi', href: '/outreach', icon: Send },
-  { name: 'Projeler', href: '/projects', icon: Briefcase },
-  { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Mesaj Şablonları', href: '/templates', icon: MessageSquareQuote },
   { name: 'CSV İçe Aktar', href: '/import-csv', icon: UploadCloud },
   { name: 'Ekip & Ayarlar', href: '/team', icon: Settings },
+  ] },
 ];
 
 interface SidebarProps { mobileOpen?: boolean; onMobileClose?: () => void; }
@@ -68,8 +80,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
         </div>
 
         {/* Navigation Links */}
-        <nav className="p-3 space-y-1">
-          {NAV_ITEMS.map((item) => {
+        <nav className="p-3 space-y-4 overflow-y-auto max-h-[calc(100vh-150px)]">
+          {NAV_GROUPS.map((group) => <div key={group.label}><p className="px-3.5 mb-1 text-[9px] font-black tracking-widest text-apex-muted/70">{group.label}</p>{group.items.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href || (pathname === '/' && item.href === '/dashboard');
 
@@ -95,7 +107,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
                 )}
               </Link>
             );
-          })}
+          })}</div>)}
         </nav>
       </div>
 

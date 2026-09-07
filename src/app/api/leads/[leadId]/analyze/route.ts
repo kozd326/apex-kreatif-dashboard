@@ -82,6 +82,16 @@ function extractOutputText(result: unknown) {
     .trim();
 }
 
+function collectText(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  if (!value || typeof value !== 'object') return [];
+  if (Array.isArray(value)) return value.flatMap(collectText);
+  const item = value as Record<string, unknown>;
+  const direct = readResponseText(item);
+  if (direct) return [direct];
+  return Object.values(item).flatMap(collectText);
+}
+
 function responseSummary(result: unknown) {
   if (!result || typeof result !== 'object') return {};
   const response = result as Record<string, unknown>;
@@ -111,6 +121,13 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
 
   const { data: lead, error: leadError } = await supabase.from('leads').select('*').eq('id', params.leadId).single();
   if (leadError || !lead) return NextResponse.json({ error: 'Müşteri adayı bulunamadı.' }, { status: 404 });
+  const { data: jobId, error: jobError } = await supabase.rpc('crm_start_analysis', { p_id: lead.id });
+  if (jobError || !jobId) return NextResponse.json({ error: jobError?.message || 'Analiz sırası oluşturulamadı. V7 SQL güncellemesinin çalıştığını doğrulayın.' }, { status: 409 });
+  const fail = async (message: string, status = 502) => {
+    await supabase.from('crm_analysis_jobs').update({ status: 'failed', error: message }).eq('id', jobId);
+    return NextResponse.json({ error: message }, { status });
+  };
+  await supabase.from('crm_analysis_jobs').update({ status: 'running', error: null }).eq('id', jobId);
 
   const prompt = [
     'Sen APEX Kreatif için kanıta dayalı dijital görünüm denetimi yapan kıdemli satış araştırmacısısın.',
@@ -138,7 +155,7 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
     });
 
     let response = await requestAnalysis(6000);
-    if (!response.ok) return NextResponse.json({ error: 'AI analizi şu anda tamamlanamadı. Anahtar ve model ayarını kontrol edin.' }, { status: 502 });
+    if (!response.ok) return fail('AI analizi şu anda tamamlanamadı. Anahtar ve model ayarını kontrol edin.');
     let result: unknown = await response.json();
     let output = extractOutputText(result);
 
@@ -147,34 +164,37 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
     if (responseSummary(result).status === 'incomplete' && responseSummary(result).incompleteReason === 'max_output_tokens') {
       console.warn('Lead AI analysis retrying after output limit', responseSummary(result));
       response = await requestAnalysis(12000);
-      if (!response.ok) return NextResponse.json({ error: 'AI analizi tekrar denemede tamamlanamadı. Mevcut bilgileriniz korundu.' }, { status: 502 });
+      if (!response.ok) return fail('AI analizi tekrar denemede tamamlanamadı. Mevcut bilgileriniz korundu.');
       result = await response.json();
       output = extractOutputText(result);
     }
 
     if (responseSummary(result).status && responseSummary(result).status !== 'completed') {
       console.error('Lead AI analysis did not complete', responseSummary(result));
-      return NextResponse.json({ error: 'AI analizi tamamlanmadan kesildi. Mevcut bilgileriniz korundu; lütfen yeniden deneyin.' }, { status: 502 });
+      return fail('AI analizi tamamlanmadan kesildi. Mevcut bilgileriniz korundu; lütfen yeniden deneyin.');
     }
     if (!output) {
       console.error('Lead AI analysis returned no readable output', responseSummary(result));
-      return NextResponse.json({ error: 'AI yanıtı tamamlanamadı. Lütfen tekrar deneyin.' }, { status: 502 });
+      const recovered = collectText(result).find(candidate => candidate.includes('{') && candidate.includes('mini_audit_notes')) || '';
+      output = recovered;
+      if (!output) return fail('AI yanıtı tamamlanamadı. Lütfen tekrar deneyin.');
     }
     let analysis;
     try {
       analysis = parseAnalysis(output);
     } catch {
       console.error('Lead AI analysis returned invalid structured output', responseSummary(result));
-      return NextResponse.json({ error: 'AI analizi geçerli bir denetim çıktısı üretmedi. Lütfen yeniden deneyin.' }, { status: 502 });
+      return fail('AI analizi geçerli bir denetim çıktısı üretmedi. Lütfen yeniden deneyin.');
     }
     const { data: updated, error: updateError } = await supabase.from('leads').update({ ...analysis, audit_checked_at: new Date().toISOString().slice(0, 10) }).eq('id', lead.id).select('*').single();
-    if (updateError || !updated) return NextResponse.json({ error: 'Analiz kaydedilemedi.' }, { status: 500 });
+    if (updateError || !updated) return fail('Analiz kaydedilemedi.', 500);
+    await supabase.from('crm_analysis_jobs').update({ status: 'applied', result: analysis, response_id: typeof (result as Record<string, unknown>)?.id === 'string' ? (result as Record<string, unknown>).id : null }).eq('id', jobId);
     await supabase.from('lead_activities').insert({ lead_id: lead.id, user_id: user.id, user_name: profile.name, type: 'Not', description: 'AI destekli kamuya açık dijital görünüm denetimi güncellendi.' });
-    return NextResponse.json({ lead: updated });
+    return NextResponse.json({ lead: updated, job_id: jobId });
   } catch (error) {
     if (error instanceof Error && ['TimeoutError', 'AbortError'].includes(error.name)) {
-      return NextResponse.json({ error: 'Analiz zaman aşımına uğradı. Mevcut bilgileriniz korundu; lütfen yeniden deneyin.' }, { status: 504 });
+      return fail('Analiz zaman aşımına uğradı. Mevcut bilgileriniz korundu; lütfen yeniden deneyin.', 504);
     }
-    return NextResponse.json({ error: 'AI analiz isteği işlenemedi.' }, { status: 500 });
+    return fail('AI analiz isteği işlenemedi.', 500);
   }
 }

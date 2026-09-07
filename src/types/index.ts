@@ -89,6 +89,9 @@ export interface LeadActivity {
 export interface CrmDocument { id: string; entity_type: 'lead' | 'project' | 'proposal'; entity_id: string; content: Record<string, unknown>; revision: number; updated_at: string; }
 export interface AnalysisJob { id: string; lead_id: string; status: 'queued' | 'running' | 'review' | 'applied' | 'failed'; result?: Record<string, unknown>; error?: string; created_at: string; updated_at: string; }
 export interface TimeEntry { id: string; project_id: string; user_id: string; entry_date: string; hours: number; hourly_cost: number; description: string; revision_work: boolean; created_at: string; }
+export interface OutreachStep { id: string; lead_id: string; channel: 'Telefon' | 'WhatsApp' | 'Instagram DM' | 'E-posta' | 'Toplantı'; step_order: number; due_date: string; status: 'Bekliyor' | 'Tamamlandı' | 'Atlandı'; message_version: string; message?: string; completed_at?: string; created_at: string; }
+export interface AuditEvidence { id: string; lead_id: string; category: 'Web' | 'Sosyal Medya' | 'Google' | 'İletişim' | 'Teknik'; source_url?: string; checked_at: string; finding: string; score?: number; evidence?: string; }
+export interface LifecycleAction { id: string; lead_id?: string; project_id?: string; action_type: 'Yenileme' | 'Çapraz Satış' | 'Referans' | 'Memnuniyet' | 'Tekrar Teklif'; due_date: string; status: 'Bekliyor' | 'Tamamlandı' | 'Atlandı'; notes: string; created_at: string; }
 
 export type ProposalStatus = 'Taslak' | 'Gönderildi' | 'Revizyon' | 'Kabul' | 'Reddedildi';
 
