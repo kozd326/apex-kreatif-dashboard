@@ -229,6 +229,7 @@ export const LeadDetailDrawer: React.FC<LeadDetailDrawerProps> = ({
                   </a>
                 ) : <span className="text-apex-muted italic">Doğrulanmadı</span>}
               </div>
+              {hasVerifiedPhone && <div className="pt-1 flex gap-2"><a href={`https://wa.me/${lead.phone.replace(/\D/g, '')}?text=${encodeURIComponent(lead.first_contact_text || `Merhaba ${lead.company_name} ekibi, APEX Kreatif'ten yazıyorum.`)}`} target="_blank" rel="noreferrer" className="text-[11px] px-2.5 py-1.5 rounded border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10">WhatsApp’ı aç</a><a href={`tel:${lead.phone}`} className="text-[11px] px-2.5 py-1.5 rounded border border-apex-orange/30 text-apex-orange hover:bg-apex-orange/10">Aramayı başlat</a></div>}
               {hasVerifiedEmail && (
                 <div className="flex items-center justify-between">
                   <span className="text-apex-muted">E-posta:</span>
