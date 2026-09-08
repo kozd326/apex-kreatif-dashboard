@@ -172,7 +172,7 @@ export interface BusinessExpense {
   created_at: string;
 }
 
-export type ContentFormat = 'Reels' | 'Post' | 'Story' | 'Carousel' | 'Case Study';
+export type ContentFormat = 'Reels' | 'Post' | 'Story' | 'Carousel' | 'Case Study' | 'UGC';
 export type ContentStage = 'Fikir' | 'Senaryo' | 'Üretimde' | 'İncelemede' | 'Planlandı' | 'Yayınlandı';
 
 export interface ContentItem {
@@ -191,6 +191,11 @@ export interface ContentItem {
   published_at?: string;
   owner_id?: string;
   owner_name?: string;
+  client_name?: string;
+  creator_name?: string;
+  creator_status?: 'Aranacak' | 'Brief gönderildi' | 'Onaylandı' | 'İçerik geldi' | 'Revizyonda' | 'Teslim edildi';
+  usage_rights?: string;
+  delivery_due?: string;
   created_at: string;
   updated_at: string;
 }
