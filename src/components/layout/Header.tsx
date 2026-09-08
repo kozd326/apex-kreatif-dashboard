@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, onOpenAddLeadModal,
     async function loadAlerts() {
       if (!currentUser) return;
       const [leadResult, taskResult, paymentResult] = await Promise.all([
-        supabase.from('leads').select('*'), supabase.from('tasks').select('*'), supabase.from('payments').select('*'),
+        supabase.from('leads').select('*').is('archived_at', null), supabase.from('tasks').select('*'), supabase.from('payments').select('*'),
       ]);
       const leads = (leadResult.data || []) as Lead[];
       const tasks = (taskResult.data || []) as Task[];
@@ -46,23 +46,24 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, onOpenAddLeadModal,
   };
 
   return (
-    <header className="h-16 border-b border-apex-border bg-apex-dark/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30">
+    <header className="min-h-16 border-b border-apex-border bg-apex-dark/90 backdrop-blur-md px-3 py-2 md:px-6 flex items-center justify-between gap-2 sticky top-0 z-30">
       {/* Search Input */}
-      <div className="flex items-center gap-3 w-80">
+      <div className="flex items-center gap-2 w-full max-w-sm">
         <button onClick={onOpenMobileNav} className="md:hidden w-9 h-9 rounded-lg bg-apex-card border border-apex-border text-apex-muted"><Menu className="w-4 h-4 mx-auto" /></button>
         <div className="relative w-full">
           <Search className="w-4 h-4 text-apex-muted absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             placeholder="Müşteri adını yazıp Enter'a basın..."
-            onKeyDown={(event) => { if (event.key === 'Enter') { const query = (event.target as HTMLInputElement).value.trim(); if (query) router.push(`/leads?search=${encodeURIComponent(query)}`); } }}
+            aria-label="Müşteri adında ara"
+            onKeyDown={(event) => { if (event.key === 'Enter') { const query = (event.target as HTMLInputElement).value.trim(); router.push(query ? `/leads?search=${encodeURIComponent(query)}` : '/leads'); window.setTimeout(() => window.dispatchEvent(new Event('apex_lead_search')), 0); } }}
             className="w-full bg-apex-card border border-apex-border text-xs text-white pl-9 pr-4 py-2 rounded-lg focus:outline-none focus:border-apex-orange transition-colors"
           />
         </div>
       </div>
 
       {/* Right Controls */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-2 md:gap-4 shrink-0">
         {/* Quick Add Button */}
         {onOpenAddLeadModal && currentUser && (currentUser.role === 'Yönetici' || currentUser.role === 'Satış') && (
           <button
@@ -70,13 +71,13 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, onOpenAddLeadModal,
             className="flex items-center gap-2 bg-apex-orange hover:bg-apex-orange-hover text-white text-xs font-semibold px-3.5 py-2 rounded-lg transition-colors shadow-lg shadow-apex-orange/20"
           >
             <Plus className="w-4 h-4" />
-            <span>Yeni Müşteri Ekle</span>
+            <span className="hidden sm:inline">Yeni Müşteri Ekle</span>
           </button>
         )}
 
         {/* Notifications Icon */}
         <div className="relative">
-          <button onClick={() => setNotificationsOpen((open) => !open)} className="w-9 h-9 rounded-lg bg-apex-card border border-apex-border flex items-center justify-center text-apex-muted hover:text-white hover:border-neutral-700 transition-colors">
+          <button aria-label="Sistem uyarılarını aç" onClick={() => setNotificationsOpen((open) => !open)} className="w-9 h-9 rounded-lg bg-apex-card border border-apex-border flex items-center justify-center text-apex-muted hover:text-white hover:border-neutral-700 transition-colors">
             <Bell className="w-4 h-4" />
             {alerts.length > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-apex-orange"></span>}
           </button>

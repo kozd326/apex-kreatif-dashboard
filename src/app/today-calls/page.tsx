@@ -9,10 +9,14 @@ import { getContactStrategy, getResearchCompleteness, getSalesPriorityScore } fr
 import { Clock3, Mail, MessageCircle, PhoneCall, AlertTriangle, ClipboardCheck } from 'lucide-react';
 
 type Queue = 'Telefon' | 'Instagram DM' | 'E-posta' | 'Takip';
+const hasCallablePhone = (lead: Lead) => {
+  const digits = (lead.phone || '').replace(/\D/g, '');
+  return digits.length >= 10 && !digits.endsWith('5300000000') && lead.contact_channels?.Telefon?.verified === true;
+};
 const actionFor = (lead: Lead): Queue => {
   if (lead.status === 'Teklif Gönderildi' || lead.status === 'Takipte' || lead.next_step_date) return 'Takip';
   const channel = getContactStrategy(lead).primary;
-  return channel === 'Telefon' ? 'Telefon' : channel === 'E-posta' ? 'E-posta' : 'Instagram DM';
+  return channel === 'Telefon' && hasCallablePhone(lead) ? 'Telefon' : channel === 'E-posta' ? 'E-posta' : 'Instagram DM';
 };
 const iconFor = (queue: Queue) => queue === 'Telefon' ? PhoneCall : queue === 'E-posta' ? Mail : queue === 'Instagram DM' ? MessageCircle : ClipboardCheck;
 const colorFor = (queue: Queue) => queue === 'Telefon' ? 'text-rose-300 border-rose-900/70' : queue === 'E-posta' ? 'text-sky-300 border-sky-900/70' : queue === 'Instagram DM' ? 'text-violet-300 border-violet-900/70' : 'text-amber-300 border-amber-900/70';

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Lead } from '@/types';
 import { formatCurrency, formatDate, isOverdue } from '@/lib/utils';
-import { getEvidenceStatus, getLeadReadinessScore } from '@/lib/leadIntelligence';
+import { getEvidenceStatus, getResearchCompleteness, getSalesPriorityScore } from '@/lib/leadIntelligence';
 import { Eye, Edit2, AlertCircle, Trash2 } from 'lucide-react';
 
 interface LeadTableProps {
@@ -29,7 +29,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               <th className="py-3 px-4">Sektör / Konum</th>
               <th className="py-3 px-4">Karar Verici</th>
               <th className="py-3 px-4">Öncelik</th>
-              <th className="py-3 px-4">Fırsat Skoru</th>
+              <th className="py-3 px-4">Araştırma Hazırlığı</th>
+              <th className="py-3 px-4">Satış Önceliği</th>
               <th className="py-3 px-4">Satış Durumu</th>
               <th className="py-3 px-4">Sorumlu</th>
               <th className="py-3 px-4 text-right">Proje Değeri</th>
@@ -41,7 +42,7 @@ export const LeadTable: React.FC<LeadTableProps> = ({
           <tbody className="divide-y divide-apex-border/60">
             {leads.length === 0 ? (
               <tr>
-                <td colSpan={11} className="py-8 text-center text-apex-muted italic">
+                <td colSpan={12} className="py-8 text-center text-apex-muted italic">
                   Arama kriterlerine uygun müşteri adayı bulunamadı.
                 </td>
               </tr>
@@ -49,7 +50,8 @@ export const LeadTable: React.FC<LeadTableProps> = ({
               leads.map((lead) => {
                 const overdue = isOverdue(lead.next_step_date);
                 const isHighPriority = lead.priority === 'Yüksek';
-                const score = getLeadReadinessScore(lead);
+                const researchScore = getResearchCompleteness(lead);
+                const salesPriority = getSalesPriorityScore(lead);
                 const evidence = getEvidenceStatus(lead);
 
                 return (
@@ -96,8 +98,12 @@ export const LeadTable: React.FC<LeadTableProps> = ({
                     </td>
 
                     <td className="py-3.5 px-4">
-                      <span title="İletişim, kanıtlı denetim ve görüşme hazırlığına göre hesaplanır." className={`font-mono font-bold ${score >= 60 ? 'text-apex-orange' : 'text-apex-muted'}`}>{score}/100</span>
+                      <span title="İletişim, kanıtlı denetim ve görüşme hazırlığının tamamlanma düzeyi. Kazanma olasılığı değildir." className={`font-mono font-bold ${researchScore >= 60 ? 'text-apex-orange' : 'text-apex-muted'}`}>{researchScore}/100</span>
                       <div className={`text-[9px] mt-1 ${evidence.tone}`}>{evidence.label}</div>
+                    </td>
+
+                    <td className="py-3.5 px-4">
+                      <span title="Takip tarihi, satış aşaması, atama ve manuel önceliğe göre günlük aksiyon sırası." className={`font-mono font-bold ${salesPriority >= 60 ? 'text-rose-300' : salesPriority >= 30 ? 'text-amber-300' : 'text-apex-muted'}`}>{salesPriority}/100</span>
                     </td>
 
                     {/* Status Badge */}

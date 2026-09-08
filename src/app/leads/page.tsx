@@ -69,7 +69,16 @@ export default function LeadsPage() {
     }
   }, [isConfigured, loadLiveData, supabase]);
 
-  useEffect(() => { setSearchQuery(new URLSearchParams(window.location.search).get('search') || ''); }, []);
+  useEffect(() => {
+    const syncSearch = () => setSearchQuery(new URLSearchParams(window.location.search).get('search') || '');
+    syncSearch();
+    window.addEventListener('popstate', syncSearch);
+    window.addEventListener('apex_lead_search', syncSearch);
+    return () => {
+      window.removeEventListener('popstate', syncSearch);
+      window.removeEventListener('apex_lead_search', syncSearch);
+    };
+  }, []);
 
   const handleSaveLead = async (savedLead: Lead) => {
     if (!isConfigured) return;
@@ -119,7 +128,10 @@ export default function LeadsPage() {
         next_step_date: savedLead.next_step_date,
       }).eq('id', savedLead.id);
 
-      if (error) alert(`Güncelleme hatası: ${error.message}`);
+      if (error) {
+        alert(`Güncelleme hatası: ${error.message}`);
+        return;
+      }
     } else {
       // Insert
       const { error } = await supabase.from('leads').insert({
@@ -166,7 +178,10 @@ export default function LeadsPage() {
         created_by: currentUser?.id,
       });
 
-      if (error) alert(`Kayıt hatası: ${error.message}`);
+      if (error) {
+        alert(`Kayıt hatası: ${error.message}`);
+        return;
+      }
     }
 
     setIsAddModalOpen(false);
@@ -176,7 +191,11 @@ export default function LeadsPage() {
 
   const handleUpdateStatus = async (leadId: string, newStatus: LeadStatus) => {
     if (!isConfigured) return;
-    await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
+    const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
+    if (error) {
+      alert(`Satış aşaması güncellenemedi: ${error.message}`);
+      return;
+    }
     loadLiveData();
     if (selectedLead && selectedLead.id === leadId) {
       setSelectedLead({ ...selectedLead, status: newStatus });

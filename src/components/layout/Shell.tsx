@@ -41,7 +41,7 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
             id: session.user.id,
             name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Kullanıcı',
             email: session.user.email || '',
-            role: session.user.user_metadata?.role || 'Satış',
+            role: session.user.user_metadata?.role || 'Görüntüleme',
           });
         }
       }

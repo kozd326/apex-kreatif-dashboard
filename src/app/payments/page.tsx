@@ -40,7 +40,18 @@ export default function PaymentsPage() {
 
   const updateStatus = async (payment: Payment, status: Payment['status']) => {
     if (!configured) return;
-    await supabase.from('payments').update({ status, paid_at: status === 'Tamamlandı' ? new Date().toISOString().slice(0, 10) : null }).eq('id', payment.id);
+    const paidAmount = status === 'Tamamlandı' ? Number(payment.amount) : status === 'Ödeme Bekliyor' ? null : Math.min(Number(payment.paid_amount) || 0, Number(payment.amount));
+    const { error } = await supabase.from('payments').update({ status, paid_amount: paidAmount, paid_at: paidAmount ? new Date().toISOString().slice(0, 10) : null }).eq('id', payment.id);
+    if (error) { alert(`Ödeme durumu güncellenemedi: ${error.message}`); return; }
+    load();
+  };
+
+  const updatePaidAmount = async (payment: Payment, value: string) => {
+    if (!configured) return;
+    const paidAmount = Math.max(0, Math.min(Number(value) || 0, Number(payment.amount)));
+    const status: Payment['status'] = paidAmount === 0 ? 'Ödeme Bekliyor' : paidAmount >= Number(payment.amount) ? 'Tamamlandı' : 'Kısmi Ödendi';
+    const { error } = await supabase.from('payments').update({ paid_amount: paidAmount || null, status, paid_at: paidAmount ? new Date().toISOString().slice(0, 10) : null }).eq('id', payment.id);
+    if (error) { alert(`Tahsil edilen tutar kaydedilemedi: ${error.message}`); return; }
     load();
   };
 
@@ -70,6 +81,6 @@ export default function PaymentsPage() {
       <button className="flex justify-center items-center gap-2 bg-apex-orange hover:bg-apex-orange-hover text-white text-xs font-bold p-2.5 rounded-lg"><Plus className="w-4 h-4" />Ödeme Ekle</button>
     </form>
     <div className="bg-apex-card/60 border border-apex-border rounded-xl p-4 flex flex-col md:flex-row gap-3 md:items-end"><div className="flex-1"><p className="text-xs font-bold text-white">Onaylı ödeme planı oluştur</p><p className="text-[11px] text-apex-muted mt-1">Seçili projenin gerçek toplam ücretini kullanır; oluşturulmadan önce onay ister.</p></div><div><label className="block text-[11px] text-apex-muted mb-1">Kapora oranı (%)</label><input min="1" max="99" type="number" value={depositPercent} onChange={(e) => setDepositPercent(Number(e.target.value))} className="w-28 bg-apex-dark border border-apex-border rounded-lg text-xs text-white p-2.5" /></div><button type="button" onClick={createPaymentPlan} className="bg-apex-dark border border-apex-border hover:border-apex-orange text-apex-orange text-xs font-bold px-4 py-2.5 rounded-lg">Planı Oluştur</button></div>
-    <div className="bg-apex-card border border-apex-border rounded-xl overflow-hidden"><table className="w-full text-left text-xs"><thead className="bg-apex-dark text-apex-muted uppercase text-[10px]"><tr><th className="p-3">Ödeme</th><th className="p-3">Vade</th><th className="p-3 text-right">Tutar</th><th className="p-3">Durum</th></tr></thead><tbody>{payments.map((payment) => <tr key={payment.id} className="border-t border-apex-border/60"><td className="p-3 font-bold text-white">{payment.title}</td><td className="p-3 text-apex-muted">{payment.due_date || '-'}</td><td className="p-3 text-right text-white">{formatCurrency(Number(payment.amount))}</td><td className="p-3"><select value={payment.status} onChange={(e) => updateStatus(payment, e.target.value as Payment['status'])} className="bg-apex-dark border border-apex-border rounded p-1.5 text-xs text-white"><option>Ödeme Bekliyor</option><option>Kısmi Ödendi</option><option>Tamamlandı</option></select></td></tr>)}{payments.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-apex-muted">Henüz tahsilat kaydı yok.</td></tr>}</tbody></table></div>
+    <div className="bg-apex-card border border-apex-border rounded-xl overflow-x-auto"><table className="w-full min-w-[720px] text-left text-xs"><thead className="bg-apex-dark text-apex-muted uppercase text-[10px]"><tr><th className="p-3">Ödeme</th><th className="p-3">Vade</th><th className="p-3 text-right">Planlanan</th><th className="p-3 text-right">Tahsil edilen</th><th className="p-3 text-right">Kalan</th><th className="p-3">Durum</th></tr></thead><tbody>{payments.map((payment) => { const paid = Number(payment.paid_amount) || 0; const remaining = Math.max(0, Number(payment.amount) - paid); return <tr key={payment.id} className="border-t border-apex-border/60"><td className="p-3 font-bold text-white">{payment.title}</td><td className="p-3 text-apex-muted">{payment.due_date || '-'}</td><td className="p-3 text-right text-white">{formatCurrency(Number(payment.amount))}</td><td className="p-3 text-right"><input aria-label={`${payment.title} tahsil edilen tutar`} type="number" min="0" max={payment.amount} defaultValue={paid || ''} onBlur={(event) => updatePaidAmount(payment, event.target.value)} className="w-28 bg-apex-dark border border-apex-border rounded p-1.5 text-right text-xs text-emerald-400" placeholder="0" /></td><td className="p-3 text-right text-apex-orange">{formatCurrency(remaining)}</td><td className="p-3"><select value={payment.status} onChange={(e) => updateStatus(payment, e.target.value as Payment['status'])} className="bg-apex-dark border border-apex-border rounded p-1.5 text-xs text-white"><option>Ödeme Bekliyor</option><option>Kısmi Ödendi</option><option>Tamamlandı</option></select></td></tr>; })}{payments.length === 0 && <tr><td colSpan={6} className="p-8 text-center text-apex-muted">Henüz tahsilat kaydı yok.</td></tr>}</tbody></table></div>
   </div></Shell>;
 }

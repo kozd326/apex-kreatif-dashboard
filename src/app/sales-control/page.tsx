@@ -35,8 +35,10 @@ export default function SalesControlPage() {
     const estimated = leads.reduce((sum, lead) => sum + num(lead.estimated_deal_value) * num(lead.win_probability) / 100, 0);
     const recurring = leads.reduce((sum, lead) => sum + num(lead.monthly_fee) * num(lead.recurring_months) * num(lead.win_probability) / 100, 0);
     const deliveryCosts = leads.reduce((sum, lead) => sum + num(lead.delivery_cost) * num(lead.win_probability) / 100, 0);
-    const collected = payments.filter((p) => p.status === 'Tamamlandı').reduce((sum, p) => sum + num(p.amount), 0);
-    const overdue = payments.filter((p) => p.status !== 'Tamamlandı' && p.due_date && new Date(`${p.due_date}T00:00:00`) < new Date()).reduce((sum, p) => sum + num(p.amount), 0);
+    const collectedAmount = (payment: Payment) => payment.status === 'Tamamlandı' ? num(payment.amount) : Math.min(num(payment.paid_amount), num(payment.amount));
+    const outstandingAmount = (payment: Payment) => Math.max(0, num(payment.amount) - collectedAmount(payment));
+    const collected = payments.reduce((sum, payment) => sum + collectedAmount(payment), 0);
+    const overdue = payments.filter((p) => p.status !== 'Tamamlandı' && p.due_date && new Date(`${p.due_date}T00:00:00`) < new Date()).reduce((sum, p) => sum + outstandingAmount(p), 0);
     const missingContact = leads.filter((lead) => !lead.phone || lead.phone === '+90 530 000 0000' || !lead.email || !lead.instagram);
     return { estimated, recurring, deliveryCosts, forecastProfit: estimated + recurring - deliveryCosts, collected, overdue, missingContact };
   }, [leads, payments]);
@@ -54,7 +56,7 @@ export default function SalesControlPage() {
             ['Ağırlıklı proje geliri', metrics.estimated, Banknote, 'Tek seferlik teklif × aşama olasılığı'],
             ['Ağırlıklı devam eden gelir', metrics.recurring, ChartNoAxesCombined, 'Aylık ücret × süre × olasılık'],
             ['Tahmini brüt kâr', metrics.forecastProfit, CheckCircle2, 'Gelir eksi teslim maliyeti'],
-            ['Tahsil edilen', metrics.collected, Banknote, 'Ödemesi tamamlanan kayıtlar'],
+            ['Tahsil edilen', metrics.collected, Banknote, 'Kısmi tahsilatlar dahil gerçek nakit'],
           ].map(([label, value, Icon, detail]) => {
             const MetricIcon = Icon as typeof Banknote;
             return <div key={label as string} className="bg-apex-card border border-apex-border rounded-xl p-4"><MetricIcon className="w-4 h-4 text-apex-orange mb-3" /><p className="text-[11px] text-apex-muted">{label as string}</p><p className="text-xl font-black text-white mt-1">{formatCurrency(value as number)}</p><p className="text-[10px] text-apex-muted mt-2">{detail as string}</p></div>;

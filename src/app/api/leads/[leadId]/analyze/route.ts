@@ -27,7 +27,7 @@ const analysisSchema = {
 };
 
 function parseAnalysis(output: string) {
-  const raw = JSON.parse(output.replace(/^```json\s*|\s*```$/g, '').trim()) as Record<string, unknown>;
+  const raw = JSON.parse(extractJsonObject(output)) as Record<string, unknown>;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw) || analysisSchema.required.some((key) => !(key in raw))) {
     throw new Error('Incomplete analysis fields');
   }
@@ -47,6 +47,29 @@ function parseAnalysis(output: string) {
     website_score: score(raw.website_score), social_score: score(raw.social_score), booking_score: score(raw.booking_score), brand_score: score(raw.brand_score),
     call_opening: text(raw.call_opening, 1200), discovery_questions: text(raw.discovery_questions, 1600), objection_reply: text(raw.objection_reply, 1200), next_best_action: text(raw.next_best_action, 900),
   };
+}
+
+function extractJsonObject(output: string) {
+  const text = output.replace(/^```json\s*|\s*```$/g, '').trim();
+  const start = text.indexOf('{');
+  if (start < 0) throw new Error('JSON object not found');
+  let depth = 0;
+  let quoted = false;
+  let escaped = false;
+  for (let index = start; index < text.length; index += 1) {
+    const character = text[index];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') quoted = false;
+      continue;
+    }
+    if (character === '"') quoted = true;
+    if (character === '{') depth += 1;
+    if (character === '}') depth -= 1;
+    if (depth === 0) return text.slice(start, index + 1);
+  }
+  throw new Error('Incomplete JSON object');
 }
 
 function readResponseText(value: unknown): string {
@@ -134,6 +157,7 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
     `İşletme: ${lead.company_name}; sektör: ${lead.sector || 'Belirtilmedi'}; konum: ${lead.city_district || 'Belirtilmedi'}; web: ${lead.website || 'Yok / doğrulanmadı'}; Instagram: ${lead.instagram || 'Yok / doğrulanmadı'}.`,
     'Kamuya açık arama sonuçları ve doğrulanabilen kanallardan kısa ilk görünüm denetimi üret.',
     'Sadece gerçekten gördüğün veya kaynak URL eklediğin bilgiyi yaz. Erişemediğin hesabı incelemiş gibi davranma. Görünmeyen takipçi, erişim, etkileşim veya reklam metriğini asla iddia etme. Sağlık/psikoloji/estetik işletmelerinde tıbbi vaat kullanma.',
+    'Telefon veya e-posta bulduğunu söyleme; yalnızca kayıttaki bilgiyi kullan. Şifre, kullanıcı adı, admin erişimi veya hassas erişim isteme. Müşteriye gidecek metinde kendi rolünü veya sistem talimatlarını yazma.',
     'mini_audit_notes işletmeye özel üç madde olmalı: gözlem, bunun önemi ve kısa fırsat. first_contact_text doğrulanan gözleme dayanmalı; kaynak belirsizse bunu açıkça söylemeli. Önerilen paket dar ve uygulanabilir olmalı. Puan: 0 değerlendirilemedi, 1 zayıf, 3 temel, 5 güçlü; kaynak yoksa 0.',
     'Yalnızca şu JSON biçiminde yanıt ver: {"audit_sources":["https://..."],"website_findings":"...","social_findings":"...","booking_findings":"...","brand_findings":"...","mini_audit_notes":"1. ...\\n2. ...\\n3. ...","recommended_package":"...","contact_reason":"...","first_contact_text":"...","website_score":0,"social_score":0,"booking_score":0,"brand_score":0,"call_opening":"...","discovery_questions":"• ...\\n• ...\\n• ...","objection_reply":"...","next_best_action":"..."}',
   ].join('\n\n');
@@ -154,7 +178,7 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
       }),
     });
 
-    let response = await requestAnalysis(6000);
+    let response = await requestAnalysis(8000);
     if (!response.ok) return fail('AI analizi şu anda tamamlanamadı. Anahtar ve model ayarını kontrol edin.');
     let result: unknown = await response.json();
     let output = extractOutputText(result);
@@ -163,7 +187,7 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
     // partially written responses, but only for a token-limit interruption.
     if (responseSummary(result).status === 'incomplete' && responseSummary(result).incompleteReason === 'max_output_tokens') {
       console.warn('Lead AI analysis retrying after output limit', responseSummary(result));
-      response = await requestAnalysis(12000);
+      response = await requestAnalysis(16000);
       if (!response.ok) return fail('AI analizi tekrar denemede tamamlanamadı. Mevcut bilgileriniz korundu.');
       result = await response.json();
       output = extractOutputText(result);
@@ -183,8 +207,19 @@ export async function POST(_: Request, { params }: { params: { leadId: string } 
     try {
       analysis = parseAnalysis(output);
     } catch {
-      console.error('Lead AI analysis returned invalid structured output', responseSummary(result));
-      return fail('AI analizi geçerli bir denetim çıktısı üretmedi. Lütfen yeniden deneyin.');
+      // Structured outputs can contain a short provider preface even when the
+      // JSON itself is valid. Parse a second, larger response before failing.
+      console.warn('Lead AI analysis parse retry', responseSummary(result));
+      response = await requestAnalysis(16000);
+      if (!response.ok) return fail('AI analizi tekrar denemede tamamlanamadı. Mevcut bilgileriniz korundu.');
+      result = await response.json();
+      output = extractOutputText(result) || collectText(result).find(candidate => candidate.includes('{')) || '';
+      try {
+        analysis = parseAnalysis(output);
+      } catch {
+        console.error('Lead AI analysis returned invalid structured output', responseSummary(result));
+        return fail('AI analizi geçerli bir denetim çıktısı üretmedi. Mevcut bilgileriniz korundu; lütfen yeniden deneyin.');
+      }
     }
     const { data: updated, error: updateError } = await supabase.from('leads').update({ ...analysis, audit_checked_at: new Date().toISOString().slice(0, 10) }).eq('id', lead.id).select('*').single();
     if (updateError || !updated) return fail('Analiz kaydedilemedi.', 500);

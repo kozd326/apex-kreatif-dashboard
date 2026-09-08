@@ -8,6 +8,7 @@ import {
   Users,
   PhoneCall,
   FileSpreadsheet,
+  Clapperboard,
   Briefcase,
   CheckSquare,
   MessageSquareQuote,
@@ -24,12 +25,14 @@ import {
   PanelsTopLeft,
   Route,
   HeartHandshake,
+  ArchiveRestore,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
   { label: 'SATIŞ', items: [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Müşteri Adayları', href: '/leads', icon: Users },
+  { name: 'Arşiv & Geri Yükleme', href: '/archive', icon: ArchiveRestore },
   { name: 'Bugünkü İşlerim', href: '/today-calls', icon: PhoneCall, badge: 'Öncelikli' },
   { name: 'Satış Akışları', href: '/sequences', icon: Route },
   { name: 'Müşteri Çalışma Alanı', href: '/workspace', icon: PanelsTopLeft },
@@ -41,6 +44,7 @@ const NAV_GROUPS = [
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Müşteri Yaşam Döngüsü', href: '/lifecycle', icon: HeartHandshake },
   { name: 'Mesaj Gönderimi', href: '/outreach', icon: Send },
+  { name: 'İçerik & Reels', href: '/content', icon: Clapperboard },
   ] },
   { label: 'YÖNETİM', items: [
   { name: 'Tahsilatlar', href: '/payments', icon: WalletCards },

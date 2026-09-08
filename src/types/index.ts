@@ -151,6 +151,8 @@ export interface Payment {
   project_id: string;
   title: string;
   amount: number;
+  /** Actual cash collected. Empty until an amount is recorded. */
+  paid_amount?: number;
   due_date?: string;
   paid_at?: string;
   status: PaymentStatus;
@@ -168,6 +170,29 @@ export interface BusinessExpense {
   expense_date: string;
   status: 'Planlandı' | 'Ödendi';
   created_at: string;
+}
+
+export type ContentFormat = 'Reels' | 'Post' | 'Story' | 'Carousel' | 'Case Study';
+export type ContentStage = 'Fikir' | 'Senaryo' | 'Üretimde' | 'İncelemede' | 'Planlandı' | 'Yayınlandı';
+
+export interface ContentItem {
+  id: string;
+  title: string;
+  format: ContentFormat;
+  stage: ContentStage;
+  pillar: string;
+  objective?: string;
+  hook?: string;
+  script?: string;
+  production_notes?: string;
+  caption?: string;
+  asset_url?: string;
+  planned_for?: string;
+  published_at?: string;
+  owner_id?: string;
+  owner_name?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ProjectChecklistItem {
