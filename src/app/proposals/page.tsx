@@ -85,44 +85,13 @@ export default function ProposalsPage() {
   const handleUpdateStatus = async (proposal: Proposal, newStatus: ProposalStatus) => {
     if (!isConfigured) return;
 
-    await supabase.from('proposals').update({ status: newStatus }).eq('id', proposal.id);
-
-    // Auto-convert to project if status changed to 'Kabul'
     if (newStatus === 'Kabul') {
-      const { data: existingProject } = await supabase
-        .from('projects')
-        .select('id')
-        .eq('proposal_id', proposal.id)
-        .limit(1);
-
-      if (existingProject && existingProject.length > 0) {
-        loadLiveData();
-        return;
-      }
-      const todayStr = new Date().toISOString().split('T')[0];
-      const { data: project } = await supabase.from('projects').insert({
-        proposal_id: proposal.id,
-        lead_id: proposal.lead_id || null,
-        project_name: proposal.title,
-        client_name: proposal.lead_name,
-        service_type: proposal.service_package,
-        assigned_to: currentUser?.id,
-        assigned_name: currentUser?.name || 'Kaan',
-        start_date: todayStr,
-        deadline: proposal.valid_until,
-        status: 'Devam Ediyor',
-        total_fee: proposal.amount,
-        payment_status: 'Ödeme Bekliyor',
-        client_notes: proposal.notes,
-        deliverables: proposal.service_package,
-      }).select('id').single();
-
-      if (proposal.lead_id) await supabase.from('leads').update({ status: 'Kazanıldı', estimated_deal_value: proposal.amount, win_probability: 100 }).eq('id', proposal.lead_id);
-      if (project) await supabase.from('project_checklists').insert([
-        'Brief ve hedefler alındı', 'Sözleşme / teklif onayı kaydedildi', 'Tasarım veya üretim hazırlandı', 'Müşteri revizyonu tamamlandı', 'Teslim ve müşteri onayı alındı',
-      ].map((title) => ({ project_id: project.id, title, assigned_to: currentUser?.id, assigned_name: currentUser?.name || 'Ekip' })));
-
-      alert(`🎉 "${proposal.lead_name}" teklifi kabul edildi ve otomatik olarak PROJELER veritabanına eklendi!`);
+      const { error } = await supabase.rpc('crm_accept_proposal', { p_proposal: proposal.id, p_deposit_percent: 50 });
+      if (error) { alert(`Teklif kabul edilemedi: ${error.message}`); return; }
+      alert(`"${proposal.lead_name}" için proje, marka kartı ve ödeme planı oluşturuldu.`);
+    } else {
+      const { data, error } = await supabase.from('proposals').update({ status: newStatus }).eq('id', proposal.id).neq('status', 'Kabul').select('id');
+      if (error || !data?.length) { alert(error?.message || 'Projeye dönüşen teklifin durumu değiştirilemez.'); return; }
     }
 
     loadLiveData();
@@ -255,8 +224,10 @@ export default function ProposalsPage() {
                     <td className="py-3.5 px-4">
                       <select
                         value={prop.status}
+                        disabled={prop.status === 'Kabul'}
                         onChange={(e) => handleUpdateStatus(prop, e.target.value as ProposalStatus)}
-                        className="bg-apex-dark border border-apex-border rounded text-xs text-white p-1.5 focus:border-apex-orange focus:outline-none font-semibold"
+                        title={prop.status === 'Kabul' ? 'Projeye dönüşen teklif buradan geri alınamaz.' : 'Teklif durumunu değiştir'}
+                        className="bg-apex-dark border border-apex-border rounded text-xs text-white p-1.5 focus:border-apex-orange focus:outline-none font-semibold disabled:opacity-60"
                       >
                         <option value="Taslak">Taslak</option>
                         <option value="Gönderildi">Gönderildi</option>

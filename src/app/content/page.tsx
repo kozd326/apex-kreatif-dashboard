@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { ContentFormat, ContentItem, ContentStage, TeamMember } from '@/types';
+import { ClientBrand, ContentFormat, ContentItem, ContentStage, TeamMember } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { CalendarDays, Clapperboard, Copy, Plus, Trash2 } from 'lucide-react';
 
@@ -10,7 +10,7 @@ const STAGES: ContentStage[] = ['Fikir', 'Senaryo', 'Üretimde', 'İncelemede', 
 const FORMATS: ContentFormat[] = ['Reels', 'Post', 'Story', 'Carousel', 'Case Study', 'UGC'];
 const PILLARS = ['Ajans Tanıtımı', 'Hizmet Anlatımı', 'Mini Denetim', 'İş Süreci', 'Portföy / Sonuç', 'Eğitici İçerik'];
 
-const blankDraft = () => ({ title: '', format: 'Reels' as ContentFormat, pillar: 'Ajans Tanıtımı', objective: '', hook: '', script: '', production_notes: '', caption: '', planned_for: '', client_name: '', creator_name: '', creator_status: 'Aranacak', usage_rights: '', delivery_due: '' });
+const blankDraft = () => ({ title: '', format: 'Reels' as ContentFormat, pillar: 'Ajans Tanıtımı', objective: '', hook: '', script: '', production_notes: '', caption: '', planned_for: '', client_name: '', client_brand_id: '', creator_name: '', creator_status: 'Aranacak', usage_rights: '', delivery_due: '' });
 
 export default function ContentPage() {
   const supabase = createClient();
@@ -18,16 +18,19 @@ export default function ContentPage() {
   const [items, setItems] = useState<ContentItem[]>([]);
   const [draft, setDraft] = useState(blankDraft());
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
+  const [brands, setBrands] = useState<ClientBrand[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!configured) return;
-    const [contentResult, sessionResult] = await Promise.all([
+    const [contentResult, sessionResult, brandResult] = await Promise.all([
       supabase.from('content_items').select('*').order('planned_for', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false }),
       supabase.auth.getSession(),
+      supabase.from('client_brands').select('*').order('company_name'),
     ]);
     if (contentResult.data) setItems(contentResult.data as ContentItem[]);
+    if (brandResult.data) setBrands(brandResult.data as ClientBrand[]);
     const user = sessionResult.data.session?.user;
     if (user) {
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
@@ -51,6 +54,7 @@ export default function ContentPage() {
       caption: draft.caption.trim() || null,
       planned_for: draft.planned_for || null,
       client_name: draft.client_name.trim() || null,
+      client_brand_id: draft.client_brand_id || null,
       creator_name: draft.creator_name.trim() || null,
       creator_status: draft.format === 'UGC' ? draft.creator_status : null,
       usage_rights: draft.usage_rights.trim() || null,
@@ -93,6 +97,7 @@ export default function ContentPage() {
 
     {showForm && <form onSubmit={createItem} className="bg-apex-card border border-apex-orange/30 rounded-2xl p-5 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><Field label="Başlık *" value={draft.title} onChange={(value) => setDraft({ ...draft, title: value })} placeholder="Örn. Markanız neden görünmüyor?"/><Select label="Format" value={draft.format} options={FORMATS} onChange={(value) => setDraft({ ...draft, format: value as ContentFormat })}/><Select label="İçerik sütunu" value={draft.pillar} options={PILLARS} onChange={(value) => setDraft({ ...draft, pillar: value })}/></div>
+      <div><label className="block text-[11px] text-apex-muted mb-1">Müşteri / marka (opsiyonel)</label><select value={draft.client_brand_id} onChange={(event)=>{const brand=brands.find(item=>item.id===event.target.value);setDraft({...draft,client_brand_id:event.target.value,client_name:brand?.company_name||''})}} className="w-full bg-apex-dark border border-apex-border rounded-lg p-2.5 text-xs text-white"><option value="">APEX / müşteri bağımsız içerik</option>{brands.map(brand=><option key={brand.id} value={brand.id}>{brand.company_name}</option>)}</select></div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Field label="Hedef" value={draft.objective} onChange={(value) => setDraft({ ...draft, objective: value })} placeholder="İlk görüşmeye DM / web formu dönüşümü"/><Field label="İlk 2 saniye / hook" value={draft.hook} onChange={(value) => setDraft({ ...draft, hook: value })} placeholder="Web siteniz müşteri kaybediyor olabilir."/></div>
       {draft.format === 'UGC' && <div className="rounded-xl border border-apex-orange/30 bg-apex-dark/70 p-4 space-y-3"><div><p className="text-xs font-bold text-apex-orange">UGC üretim kontrolü</p><p className="text-[11px] text-apex-muted mt-1">Bu alan müşteri için üretilen creator içeriğinin brief, teslim ve kullanım iznini takip eder. Ham içerik paylaşmadan önce kullanım hakkını yazılı teyit edin.</p></div><div className="grid grid-cols-1 md:grid-cols-3 gap-3"><Field label="Müşteri / marka" value={draft.client_name} onChange={(value) => setDraft({ ...draft, client_name: value })} placeholder="Örn. X Klinik"/><Field label="UGC üreticisi" value={draft.creator_name} onChange={(value) => setDraft({ ...draft, creator_name: value })} placeholder="Ad / kullanıcı adı"/><Select label="Creator durumu" value={draft.creator_status} options={['Aranacak', 'Brief gönderildi', 'Onaylandı', 'İçerik geldi', 'Revizyonda', 'Teslim edildi']} onChange={(value) => setDraft({ ...draft, creator_status: value })}/></div><div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Field label="Kullanım hakkı" value={draft.usage_rights} onChange={(value) => setDraft({ ...draft, usage_rights: value })} placeholder="Organik sosyal medya, 3 ay; reklam kullanımına izin var/yok"/><div><label className="block text-[11px] text-apex-muted mb-1">UGC teslim tarihi</label><input type="date" value={draft.delivery_due} onChange={(event) => setDraft({ ...draft, delivery_due: event.target.value })} className="w-full bg-apex-dark border border-apex-border rounded-lg p-2.5 text-xs text-white"/></div></div></div>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><TextArea label="Senaryo / sahne akışı" value={draft.script} onChange={(value) => setDraft({ ...draft, script: value })} placeholder="0–2 sn: problem\n3–8 sn: gözlem\n9–15 sn: çözüm..."/><TextArea label="Higgsfield / çekim ve kurgu notu" value={draft.production_notes} onChange={(value) => setDraft({ ...draft, production_notes: value })} placeholder="Referans görüntü, kamera hareketi, ekran kaydı, altyazı, müzik..."/></div>

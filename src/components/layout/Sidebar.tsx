@@ -26,36 +26,38 @@ import {
   Route,
   HeartHandshake,
   ArchiveRestore,
+  Megaphone,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
-  { label: 'SATIŞ', items: [
+  { label: 'ÇALIŞMA', items: [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Müşteri Adayları', href: '/leads', icon: Users },
-  { name: 'Arşiv & Geri Yükleme', href: '/archive', icon: ArchiveRestore },
   { name: 'Bugünkü İşlerim', href: '/today-calls', icon: PhoneCall, badge: 'Öncelikli' },
-  { name: 'Satış Akışları', href: '/sequences', icon: Route },
-  { name: 'Müşteri Çalışma Alanı', href: '/workspace', icon: PanelsTopLeft },
   { name: 'Teklifler', href: '/proposals', icon: FileSpreadsheet },
-  { name: 'Satış & Kârlılık', href: '/sales-control', icon: ChartNoAxesCombined },
   ] },
   { label: 'OPERASYON', items: [
+  { name: 'Müşteriler', href: '/brands', icon: ContactRound },
   { name: 'Projeler', href: '/projects', icon: Briefcase },
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
-  { name: 'Müşteri Yaşam Döngüsü', href: '/lifecycle', icon: HeartHandshake },
-  { name: 'Mesaj Gönderimi', href: '/outreach', icon: Send },
-  { name: 'İçerik & Reels', href: '/content', icon: Clapperboard },
+  { name: 'Kreatif Stüdyo', href: '/content', icon: Clapperboard },
+  { name: 'Reklamlar', href: '/ads', icon: Megaphone },
   ] },
   { label: 'YÖNETİM', items: [
   { name: 'Tahsilatlar', href: '/payments', icon: WalletCards },
   { name: 'Finans & İşletme', href: '/finance', icon: Landmark },
-  { name: 'Müşteri & Markalar', href: '/brands', icon: ContactRound },
   { name: 'Hedefler & Raporlar', href: '/reports', icon: Goal },
   ] },
-  { label: 'ARAÇLAR', items: [
+  { label: 'DİĞER', items: [
+  { name: 'Satış Akışları', href: '/sequences', icon: Route },
+  { name: 'Müşteri Çalışma Alanı', href: '/workspace', icon: PanelsTopLeft },
+  { name: 'Müşteri Yaşam Döngüsü', href: '/lifecycle', icon: HeartHandshake },
+  { name: 'Mesaj Gönderimi', href: '/outreach', icon: Send },
+  { name: 'Satış & Kârlılık', href: '/sales-control', icon: ChartNoAxesCombined },
   { name: 'Kullanım Rehberi', href: '/guide', icon: CircleHelp },
   { name: 'Mesaj Şablonları', href: '/templates', icon: MessageSquareQuote },
   { name: 'CSV İçe Aktar', href: '/import-csv', icon: UploadCloud },
+  { name: 'Arşiv', href: '/archive', icon: ArchiveRestore },
   { name: 'Ekip & Ayarlar', href: '/team', icon: Settings },
   ] },
 ];

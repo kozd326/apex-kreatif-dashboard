@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { BusinessExpense, Payment, Project } from '@/types';
+import { BusinessExpense, Payment, Project, TimeEntry } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { formatCurrency } from '@/lib/utils';
 import { Plus } from 'lucide-react';
@@ -15,6 +15,8 @@ export default function FinancePage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [expenses, setExpenses] = useState<BusinessExpense[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [loadError, setLoadError] = useState('');
   const [vendor, setVendor] = useState('');
   const [category, setCategory] = useState<BusinessExpense['category']>('Operasyon');
   const [description, setDescription] = useState('');
@@ -24,14 +26,18 @@ export default function FinancePage() {
 
   const load = useCallback(async () => {
     if (!configured) return;
-    const [paymentsResult, expensesResult, projectsResult] = await Promise.all([
+    const [paymentsResult, expensesResult, projectsResult, timeResult] = await Promise.all([
       supabase.from('payments').select('*').order('paid_at', { ascending: false }),
       supabase.from('business_expenses').select('*').order('expense_date', { ascending: false }),
       supabase.from('projects').select('*').order('created_at', { ascending: false }),
+      supabase.from('crm_time_entries').select('*').order('entry_date', { ascending: false }),
     ]);
+    if (paymentsResult.error || expensesResult.error || projectsResult.error || timeResult.error) { setLoadError('Finans verilerinin tamamı yüklenemedi. Eksik veriyle kârlılık hesaplanmadı; bağlantıyı kontrol edip yenileyin.'); return; }
+    setLoadError('');
     if (paymentsResult.data) setPayments(paymentsResult.data as Payment[]);
     if (expensesResult.data) setExpenses(expensesResult.data as BusinessExpense[]);
     if (projectsResult.data) setProjects(projectsResult.data as Project[]);
+    if (timeResult.data) setTimeEntries(timeResult.data as TimeEntry[]);
   }, [configured, supabase]);
 
   useEffect(() => { load(); }, [load]);
@@ -55,9 +61,16 @@ export default function FinancePage() {
     const project = projects.find((item) => item.id === projectId);
     return project ? `${project.client_name} — ${project.project_name}` : 'Proje bilgisi yok';
   };
+  const projectProfit = projects.map((project) => {
+    const revenue = payments.filter((item) => item.project_id === project.id).reduce((sum, item) => sum + collected(item), 0);
+    const directExpense = expenses.filter((item) => item.project_id === project.id && item.status === 'Ödendi').reduce((sum, item) => sum + Number(item.amount), 0);
+    const labor = timeEntries.filter((item) => item.project_id === project.id).reduce((sum, item) => sum + Number(item.hours) * Number(item.hourly_cost), 0);
+    return { project, revenue, cost: directExpense + labor, profit: revenue - directExpense - labor };
+  });
 
   return <Shell><div className="space-y-6">
     <div><h1 className="text-2xl font-extrabold text-white">Finans & İşletme</h1><p className="text-xs text-apex-muted mt-1">Ajansın gerçek tahsilatlarını, giderlerini ve proje bazlı nakit durumunu takip edin.</p></div>
+    {loadError&&<div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">{loadError}</div>}
     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
       {[['Tahsil Edilen Gelir', income, 'text-emerald-400'], ['Ödenen Gider', expenseTotal, 'text-red-400'], ['Net Nakit', income - expenseTotal, income - expenseTotal >= 0 ? 'text-emerald-400' : 'text-red-400'], ['Bekleyen Tahsilat', receivables, 'text-apex-orange']].map(([label, value, color]) => <div key={String(label)} className="bg-apex-card border border-apex-border rounded-xl p-4"><span className="text-[10px] uppercase tracking-wider text-apex-muted">{label}</span><p className={`mt-1 text-xl font-bold ${color}`}>{formatCurrency(Number(value))}</p></div>)}
     </div>
@@ -73,5 +86,6 @@ export default function FinancePage() {
       <div className="bg-apex-card border border-apex-border rounded-xl overflow-hidden"><h2 className="p-4 text-sm font-bold text-white border-b border-apex-border">Gelirler — Tahsil Edilenler</h2><table className="w-full text-left text-xs"><thead className="bg-apex-dark text-apex-muted"><tr><th className="p-3">Kimden / ne için</th><th className="p-3 text-right">Tutar</th></tr></thead><tbody>{payments.filter((p) => collected(p) > 0).map((p) => <tr key={p.id} className="border-t border-apex-border"><td className="p-3"><div className="text-white font-semibold">{projectName(p.project_id)}</div><div className="text-[10px] text-apex-muted">{p.title}{p.status === 'Kısmi Ödendi' ? ' · Kısmi tahsilat' : ''}</div></td><td className="p-3 text-right text-emerald-400">{formatCurrency(collected(p))}</td></tr>)}{income === 0 && <tr><td colSpan={2} className="p-6 text-center text-apex-muted">Henüz tahsil edilmiş gelir yok.</td></tr>}</tbody></table></div>
       <div className="bg-apex-card border border-apex-border rounded-xl overflow-hidden"><h2 className="p-4 text-sm font-bold text-white border-b border-apex-border">Giderler</h2><table className="w-full text-left text-xs"><thead className="bg-apex-dark text-apex-muted"><tr><th className="p-3">Kime / ne için</th><th className="p-3 text-right">Tutar</th></tr></thead><tbody>{expenses.map((expense) => <tr key={expense.id} className="border-t border-apex-border"><td className="p-3"><div className="text-white font-semibold">{expense.vendor}</div><div className="text-[10px] text-apex-muted">{expense.category}{expense.description ? ` · ${expense.description}` : ''}</div></td><td className="p-3 text-right text-red-400">{formatCurrency(Number(expense.amount))}</td></tr>)}{expenses.length === 0 && <tr><td colSpan={2} className="p-6 text-center text-apex-muted">Henüz gider kaydı yok.</td></tr>}</tbody></table></div>
     </div>
+    <div className="bg-apex-card border border-apex-border rounded-xl overflow-x-auto"><h2 className="p-4 text-sm font-bold text-white border-b border-apex-border">Proje Bazlı Gerçek Kârlılık</h2><table className="w-full min-w-[700px] text-left text-xs"><thead className="bg-apex-dark text-apex-muted"><tr><th className="p-3">Proje</th><th className="p-3 text-right">Tahsilat</th><th className="p-3 text-right">Gider + emek</th><th className="p-3 text-right">Net kâr</th><th className="p-3 text-right">Marj</th></tr></thead><tbody>{projectProfit.map(({project,revenue,cost,profit})=><tr key={project.id} className="border-t border-apex-border"><td className="p-3"><p className="font-bold text-white">{project.client_name}</p><p className="text-[10px] text-apex-muted">{project.project_name}</p></td><td className="p-3 text-right text-emerald-400">{formatCurrency(revenue)}</td><td className="p-3 text-right text-red-300">{formatCurrency(cost)}</td><td className={`p-3 text-right font-bold ${profit>=0?'text-emerald-400':'text-red-400'}`}>{formatCurrency(profit)}</td><td className="p-3 text-right text-white">{revenue?`${((profit/revenue)*100).toFixed(1)}%`:'—'}</td></tr>)}</tbody></table></div>
   </div></Shell>;
 }

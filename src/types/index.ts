@@ -153,6 +153,7 @@ export interface Payment {
   amount: number;
   /** Actual cash collected. Empty until an amount is recorded. */
   paid_amount?: number;
+  payment_kind?: 'deposit' | 'balance';
   due_date?: string;
   paid_at?: string;
   status: PaymentStatus;
@@ -181,6 +182,7 @@ export interface ContentItem {
   format: ContentFormat;
   stage: ContentStage;
   pillar: string;
+  brand_name?: string;
   objective?: string;
   hook?: string;
   script?: string;
@@ -192,6 +194,7 @@ export interface ContentItem {
   owner_id?: string;
   owner_name?: string;
   client_name?: string;
+  client_brand_id?: string;
   creator_name?: string;
   creator_status?: 'Aranacak' | 'Brief gönderildi' | 'Onaylandı' | 'İçerik geldi' | 'Revizyonda' | 'Teslim edildi';
   usage_rights?: string;
@@ -261,4 +264,30 @@ export interface MessageTemplate {
   description: string;
   content: string;
   placeholders: string[];
+}
+
+export type CampaignStatus = 'Taslak' | 'Testte' | 'Aktif' | 'Duraklatıldı' | 'Tamamlandı';
+
+export interface AdCampaign {
+  id: string;
+  project_id?: string;
+  lead_id?: string;
+  owner_id?: string;
+  name: string;
+  platform: 'Meta' | 'Google' | 'TikTok' | 'Diğer';
+  objective: string;
+  audience?: string;
+  creative_name?: string;
+  status: CampaignStatus;
+  budget: number;
+  spend: number;
+  impressions: number;
+  clicks: number;
+  results: number;
+  sales_value: number;
+  start_date?: string;
+  end_date?: string;
+  notes?: string;
+  created_at: string;
+  updated_at: string;
 }

@@ -2,6 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer components {
+  .input { @apply w-full bg-apex-dark border border-apex-border rounded-lg text-white p-2.5 outline-none focus:border-apex-orange; }
+}
+
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 
 :root {
