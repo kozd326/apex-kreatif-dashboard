@@ -43,3 +43,10 @@ test('Agent Center defines the coordinator gate and secure migration', async () 
   assert.match(sql, /on conflict \(owner_id\) do update/i);
   assert.match(sql, /drop policy if exists agent_runs_write/i);
 });
+
+test('Agent usage migration records token and estimated-cost fields', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase-v14-agent-usage.sql'), 'utf8');
+  assert.match(sql, /total_input_tokens/i);
+  assert.match(sql, /total_output_tokens/i);
+  assert.match(sql, /estimated_cost_usd/i);
+});

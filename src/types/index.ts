@@ -306,6 +306,14 @@ export interface AgentRun {
   final_output?: string;
   status: AgentRunStatus;
   error_message?: string;
+  model?: string;
+  expert_input_tokens?: number;
+  expert_output_tokens?: number;
+  coordinator_input_tokens?: number;
+  coordinator_output_tokens?: number;
+  total_input_tokens?: number;
+  total_output_tokens?: number;
+  estimated_cost_usd?: number | null;
   created_at: string;
   updated_at: string;
 }
