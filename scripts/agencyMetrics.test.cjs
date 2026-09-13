@@ -26,3 +26,20 @@ test('Agency OS migration keeps proposal conversion idempotent and protected', (
   assert.match(sql, /enable row level security/i);
   assert.match(sql, /revoke all on function public\.crm_accept_proposal/i);
 });
+
+test('Agent Center defines the coordinator gate and secure migration', async () => {
+  const { AGENT_ROLES, buildCoordinatorPrompt, isAgentRole } = await import('../src/lib/agentCenter.mjs');
+  assert.equal(isAgentRole('produksiyon-yoneticisi'), true);
+  assert.equal(isAgentRole('genel-koordinator'), true);
+  assert.equal(AGENT_ROLES.filter((role) => role.id === 'genel-koordinator').length, 1);
+  assert.match(buildCoordinatorPrompt('Kreatif Direktör', 'bağlam', 'taslak'), /Nihai APEX Raporu/);
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase-v13-agent-center.sql'), 'utf8');
+  assert.match(sql, /enable row level security/i);
+  assert.match(sql, /owner_id=auth\.uid\(\)/i);
+  assert.match(sql, /expert_role in/i);
+  assert.doesNotMatch(sql, /for all to authenticated/i);
+  assert.match(sql, /no INSERT\/UPDATE\/DELETE policy/i);
+  assert.match(sql, /reserve_agent_run/i);
+  assert.match(sql, /on conflict \(owner_id\) do update/i);
+  assert.match(sql, /drop policy if exists agent_runs_write/i);
+});

@@ -291,3 +291,21 @@ export interface AdCampaign {
   created_at: string;
   updated_at: string;
 }
+
+export type AgentRunStatus = 'Çalışıyor' | 'Hazır' | 'Başarısız';
+export interface AgentRun {
+  id: string;
+  owner_id: string;
+  client_brand_id?: string;
+  project_id?: string;
+  expert_role: string;
+  brief: string;
+  context_snapshot: Record<string, unknown>;
+  expert_output?: string;
+  coordinator_output?: string;
+  final_output?: string;
+  status: AgentRunStatus;
+  error_message?: string;
+  created_at: string;
+  updated_at: string;
+}

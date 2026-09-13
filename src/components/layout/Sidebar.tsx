@@ -27,6 +27,7 @@ import {
   HeartHandshake,
   ArchiveRestore,
   Megaphone,
+  Bot,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
@@ -41,6 +42,7 @@ const NAV_GROUPS = [
   { name: 'Projeler', href: '/projects', icon: Briefcase },
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Kreatif Stüdyo', href: '/content', icon: Clapperboard },
+  { name: 'Agent Center', href: '/agents', icon: Bot },
   { name: 'Reklamlar', href: '/ads', icon: Megaphone },
   ] },
   { label: 'YÖNETİM', items: [

@@ -29,7 +29,7 @@ Bu doküman, **APEX KREATİF Sales & Project Management Dashboard** uygulamasın
 
 1. [Supabase Dashboard](https://supabase.com/dashboard) üzerinde oturum açın ve projenizi seçin (veya yeni proje oluşturun).
 2. Sol menüden **SQL Editor** bölümüne girin ve **New Query** butonuna tıklayın.
-3. Yeni kurulumda önce **`schema.sql`**, ardından numara sırasıyla **`supabase-v2`**–**`supabase-v12`** SQL dosyalarını çalıştırın. Mevcut canlı kurulumda yalnızca henüz uygulanmamış en yeni migration dosyalarını çalıştırın. `supabase-v12-agency-os.sql`, reklam performansı tablolarını ve güvenli teklif → proje → ödeme otomasyonunu ekler.
+3. Yeni kurulumda önce **`schema.sql`**, ardından numara sırasıyla **`supabase-v2`**–**`supabase-v13`** SQL dosyalarını çalıştırın. Mevcut canlı kurulumda yalnızca henüz uygulanmamış en yeni migration dosyalarını çalıştırın. `supabase-v12-agency-os.sql`, reklam performansı tablolarını ve güvenli teklif → proje → ödeme otomasyonunu; `supabase-v13-agent-center.sql` ise Agent Center geçmişi ve erişim kurallarını ekler.
 4. **Project Settings** > **API** sekmesine gidin.
 5. Buradaki **Project URL** ve **anon public key** değerlerini kopyalayın.
 6. Projenizdeki `.env.local` dosyasını açıp değerleri yapıştırın:
@@ -73,6 +73,12 @@ AI analizi, aday kartındaki **AI Analizi Başlat** butonuyla yalnızca kamuya a
 4. Yeniden deploy sonrası aday kartından **AI Analizi Başlat** butonuna basın.
 
 Analiz, erişemediği hesaplar veya görünmeyen Instagram metrikleri için kesin hüküm vermez; çıktı gönderilmeden önce ekip tarafından kontrol edilmelidir.
+
+## 4.2 Agent Center (opsiyonel)
+
+Agent Center mevcut `OPENAI_API_KEY` değişkenini kullanır; anahtar yalnızca sunucuda kalır ve tarayıcıya gönderilmez. İsterseniz bu ekran için ayrı model tanımlamak üzere `OPENAI_AGENT_MODEL` ekleyin; boşsa mevcut analiz modeli, o da boşsa `gpt-5-mini` kullanılır. Ayrıca Supabase Dashboard > **Project Settings > API** sayfasındaki `service_role` anahtarını yalnızca Railway Variables'a `SUPABASE_SERVICE_ROLE_KEY` olarak ekleyin. Bu anahtar, tarayıcıdan değiştirilemeyen koordinatör onaylı raporların yalnızca sunucu tarafından kaydedilmesi içindir; `NEXT_PUBLIC_` öneki kullanmayın ve bu anahtarı GitHub'a koymayın.
+
+Agent Center hiçbir WhatsApp, e-posta, reklam veya sosyal medya paylaşımını kendiliğinden göndermez. Uzman taslağı ikinci adımda Genel Koordinatör tarafından değerlendirilir, ardından tarayıcı yazımına kapalı `agent_runs` geçmişine kaydedilir. Marka/proje bağlamında yalnızca iş için gerekli temel alanlar kullanılır; müşteri notları aktarılmaz. Brief'e hasta, kimlik veya başka hassas kişisel veri yazmayın.
 
 ## 5. Uygulamayı Çalıştırma
 
