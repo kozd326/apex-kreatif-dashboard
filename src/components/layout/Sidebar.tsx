@@ -42,6 +42,7 @@ const NAV_GROUPS = [
   { name: 'Projeler', href: '/projects', icon: Briefcase },
   { name: 'Görevler', href: '/tasks', icon: CheckSquare },
   { name: 'Kreatif Stüdyo', href: '/content', icon: Clapperboard },
+  { name: 'Marka Başlangıç', href: '/onboarding', icon: FileSpreadsheet },
   { name: 'Agent Center', href: '/agents', icon: Bot },
   { name: 'Reklamlar', href: '/ads', icon: Megaphone },
   ] },

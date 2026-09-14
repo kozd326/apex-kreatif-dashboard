@@ -2,15 +2,16 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { ClientBrand, ContentFormat, ContentItem, ContentStage, TeamMember } from '@/types';
+import { ClientBrand, ContentApprovalStatus, ContentFormat, ContentItem, ContentStage, Project, TeamMember } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { CalendarDays, Clapperboard, Copy, Plus, Trash2 } from 'lucide-react';
 
 const STAGES: ContentStage[] = ['Fikir', 'Senaryo', 'Üretimde', 'İncelemede', 'Planlandı', 'Yayınlandı'];
 const FORMATS: ContentFormat[] = ['Reels', 'Post', 'Story', 'Carousel', 'Case Study', 'UGC'];
 const PILLARS = ['Ajans Tanıtımı', 'Hizmet Anlatımı', 'Mini Denetim', 'İş Süreci', 'Portföy / Sonuç', 'Eğitici İçerik'];
+const APPROVALS: ContentApprovalStatus[] = ['Taslak', 'Müşteri İncelemesinde', 'Onaylandı', 'Revizyon İstendi'];
 
-const blankDraft = () => ({ title: '', format: 'Reels' as ContentFormat, pillar: 'Ajans Tanıtımı', objective: '', hook: '', script: '', production_notes: '', caption: '', planned_for: '', client_name: '', client_brand_id: '', creator_name: '', creator_status: 'Aranacak', usage_rights: '', delivery_due: '' });
+const blankDraft = () => ({ title: '', format: 'Reels' as ContentFormat, pillar: 'Ajans Tanıtımı', objective: '', hook: '', script: '', production_notes: '', caption: '', planned_for: '', client_name: '', client_brand_id: '', project_id: '', creator_name: '', creator_status: 'Aranacak', usage_rights: '', delivery_due: '' });
 
 export default function ContentPage() {
   const supabase = createClient();
@@ -19,18 +20,21 @@ export default function ContentPage() {
   const [draft, setDraft] = useState(blankDraft());
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [brands, setBrands] = useState<ClientBrand[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     if (!configured) return;
-    const [contentResult, sessionResult, brandResult] = await Promise.all([
+    const [contentResult, sessionResult, brandResult, projectResult] = await Promise.all([
       supabase.from('content_items').select('*').order('planned_for', { ascending: true, nullsFirst: false }).order('created_at', { ascending: false }),
       supabase.auth.getSession(),
       supabase.from('client_brands').select('*').order('company_name'),
+      supabase.from('projects').select('*').is('archived_at', null).order('created_at', { ascending: false }),
     ]);
     if (contentResult.data) setItems(contentResult.data as ContentItem[]);
     if (brandResult.data) setBrands(brandResult.data as ClientBrand[]);
+    if (projectResult.data) setProjects(projectResult.data as Project[]);
     const user = sessionResult.data.session?.user;
     if (user) {
       const { data } = await supabase.from('profiles').select('*').eq('id', user.id).single();
@@ -55,6 +59,7 @@ export default function ContentPage() {
       planned_for: draft.planned_for || null,
       client_name: draft.client_name.trim() || null,
       client_brand_id: draft.client_brand_id || null,
+      project_id: draft.project_id || null,
       creator_name: draft.creator_name.trim() || null,
       creator_status: draft.format === 'UGC' ? draft.creator_status : null,
       usage_rights: draft.usage_rights.trim() || null,
@@ -71,6 +76,12 @@ export default function ContentPage() {
     const values = { stage, published_at: stage === 'Yayınlandı' ? item.published_at || new Date().toISOString().slice(0, 10) : item.published_at || null };
     const { error } = await supabase.from('content_items').update(values).eq('id', item.id);
     if (error) { alert(`İçerik aşaması güncellenemedi: ${error.message}`); return; }
+    load();
+  };
+
+  const updateApproval = async (item: ContentItem, approval_status: ContentApprovalStatus) => {
+    const { error } = await supabase.from('content_items').update({ approval_status }).eq('id', item.id);
+    if (error) { alert(`İçerik onay durumu güncellenemedi: ${error.message}`); return; }
     load();
   };
 
@@ -97,7 +108,7 @@ export default function ContentPage() {
 
     {showForm && <form onSubmit={createItem} className="bg-apex-card border border-apex-orange/30 rounded-2xl p-5 space-y-4">
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3"><Field label="Başlık *" value={draft.title} onChange={(value) => setDraft({ ...draft, title: value })} placeholder="Örn. Markanız neden görünmüyor?"/><Select label="Format" value={draft.format} options={FORMATS} onChange={(value) => setDraft({ ...draft, format: value as ContentFormat })}/><Select label="İçerik sütunu" value={draft.pillar} options={PILLARS} onChange={(value) => setDraft({ ...draft, pillar: value })}/></div>
-      <div><label className="block text-[11px] text-apex-muted mb-1">Müşteri / marka (opsiyonel)</label><select value={draft.client_brand_id} onChange={(event)=>{const brand=brands.find(item=>item.id===event.target.value);setDraft({...draft,client_brand_id:event.target.value,client_name:brand?.company_name||''})}} className="w-full bg-apex-dark border border-apex-border rounded-lg p-2.5 text-xs text-white"><option value="">APEX / müşteri bağımsız içerik</option>{brands.map(brand=><option key={brand.id} value={brand.id}>{brand.company_name}</option>)}</select></div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><div><label className="block text-[11px] text-apex-muted mb-1">Müşteri / marka (opsiyonel)</label><select value={draft.client_brand_id} onChange={(event)=>{const brand=brands.find(item=>item.id===event.target.value);setDraft({...draft,client_brand_id:event.target.value,client_name:brand?.company_name||'',project_id:brand?.project_id||draft.project_id})}} className="w-full bg-apex-dark border border-apex-border rounded-lg p-2.5 text-xs text-white"><option value="">APEX / müşteri bağımsız içerik</option>{brands.map(brand=><option key={brand.id} value={brand.id}>{brand.company_name}</option>)}</select></div><div><label className="block text-[11px] text-apex-muted mb-1">Bağlı proje (müşteri onayı için gerekli)</label><select value={draft.project_id} onChange={event=>setDraft({...draft,project_id:event.target.value})} className="w-full bg-apex-dark border border-apex-border rounded-lg p-2.5 text-xs text-white"><option value="">Henüz projeye bağlama</option>{projects.map(project=><option key={project.id} value={project.id}>{project.client_name} — {project.project_name}</option>)}</select></div></div>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Field label="Hedef" value={draft.objective} onChange={(value) => setDraft({ ...draft, objective: value })} placeholder="İlk görüşmeye DM / web formu dönüşümü"/><Field label="İlk 2 saniye / hook" value={draft.hook} onChange={(value) => setDraft({ ...draft, hook: value })} placeholder="Web siteniz müşteri kaybediyor olabilir."/></div>
       {draft.format === 'UGC' && <div className="rounded-xl border border-apex-orange/30 bg-apex-dark/70 p-4 space-y-3"><div><p className="text-xs font-bold text-apex-orange">UGC üretim kontrolü</p><p className="text-[11px] text-apex-muted mt-1">Bu alan müşteri için üretilen creator içeriğinin brief, teslim ve kullanım iznini takip eder. Ham içerik paylaşmadan önce kullanım hakkını yazılı teyit edin.</p></div><div className="grid grid-cols-1 md:grid-cols-3 gap-3"><Field label="Müşteri / marka" value={draft.client_name} onChange={(value) => setDraft({ ...draft, client_name: value })} placeholder="Örn. X Klinik"/><Field label="UGC üreticisi" value={draft.creator_name} onChange={(value) => setDraft({ ...draft, creator_name: value })} placeholder="Ad / kullanıcı adı"/><Select label="Creator durumu" value={draft.creator_status} options={['Aranacak', 'Brief gönderildi', 'Onaylandı', 'İçerik geldi', 'Revizyonda', 'Teslim edildi']} onChange={(value) => setDraft({ ...draft, creator_status: value })}/></div><div className="grid grid-cols-1 md:grid-cols-2 gap-3"><Field label="Kullanım hakkı" value={draft.usage_rights} onChange={(value) => setDraft({ ...draft, usage_rights: value })} placeholder="Organik sosyal medya, 3 ay; reklam kullanımına izin var/yok"/><div><label className="block text-[11px] text-apex-muted mb-1">UGC teslim tarihi</label><input type="date" value={draft.delivery_due} onChange={(event) => setDraft({ ...draft, delivery_due: event.target.value })} className="w-full bg-apex-dark border border-apex-border rounded-lg p-2.5 text-xs text-white"/></div></div></div>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3"><TextArea label="Senaryo / sahne akışı" value={draft.script} onChange={(value) => setDraft({ ...draft, script: value })} placeholder="0–2 sn: problem\n3–8 sn: gözlem\n9–15 sn: çözüm..."/><TextArea label="Higgsfield / çekim ve kurgu notu" value={draft.production_notes} onChange={(value) => setDraft({ ...draft, production_notes: value })} placeholder="Referans görüntü, kamera hareketi, ekran kaydı, altyazı, müzik..."/></div>
@@ -106,7 +117,7 @@ export default function ContentPage() {
     </form>}
 
   <div className="flex gap-4 overflow-x-auto pb-3 snap-x">
-      {columns.map(({ stage, items: stageItems }) => <section key={stage} className="w-[290px] shrink-0 snap-start"><div className="flex items-center justify-between mb-3 px-1"><h2 className="text-xs font-bold text-white">{stage}</h2><span className="text-[10px] font-mono text-apex-muted">{stageItems.length}</span></div><div className="min-h-28 space-y-3 rounded-xl bg-apex-card/40 border border-apex-border p-2">{stageItems.map((item) => <article key={item.id} className="bg-apex-card border border-apex-border rounded-xl p-3.5 space-y-3 shadow-sm"><div className="flex justify-between gap-2"><div><p className="text-[10px] text-apex-orange font-bold uppercase tracking-wider">{item.format} · {item.pillar}</p><h3 className="text-sm font-bold text-white mt-1 leading-snug">{item.title}</h3></div><button onClick={() => deleteItem(item)} aria-label={`${item.title} içeriğini sil`} className="text-apex-muted hover:text-rose-400"><Trash2 className="w-3.5 h-3.5"/></button></div>{item.hook && <p className="text-xs text-neutral-300 leading-relaxed border-l-2 border-apex-orange pl-2.5">{item.hook}</p>}{item.format === 'UGC' && <p className="text-[10px] text-amber-300 leading-relaxed">{item.client_name || 'Marka belirlenecek'} · {item.creator_name || 'Creator aranacak'}{item.delivery_due ? ` · Teslim ${item.delivery_due}` : ''}</p>}<div className="flex items-center justify-between gap-2"><select aria-label={`${item.title} aşaması`} value={item.stage} onChange={(event) => updateStage(item, event.target.value as ContentStage)} className="min-w-0 bg-apex-dark border border-apex-border rounded-lg px-2 py-1.5 text-[10px] text-white">{STAGES.map((option) => <option key={option}>{option}</option>)}</select><div className="flex items-center gap-2">{item.planned_for && <span className="text-[10px] text-apex-muted flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{item.planned_for}</span>}<button onClick={() => copyBrief(item)} title="Üretim kartını kopyala" className="text-apex-orange hover:text-white"><Copy className="w-3.5 h-3.5"/></button></div></div></article>)}{stageItems.length === 0 && <div className="h-24 grid place-items-center text-[11px] text-apex-muted italic"><Clapperboard className="w-4 h-4 mr-1"/>İçerik yok</div>}</div></section>)}
+      {columns.map(({ stage, items: stageItems }) => <section key={stage} className="w-[290px] shrink-0 snap-start"><div className="flex items-center justify-between mb-3 px-1"><h2 className="text-xs font-bold text-white">{stage}</h2><span className="text-[10px] font-mono text-apex-muted">{stageItems.length}</span></div><div className="min-h-28 space-y-3 rounded-xl bg-apex-card/40 border border-apex-border p-2">{stageItems.map((item) => <article key={item.id} className="bg-apex-card border border-apex-border rounded-xl p-3.5 space-y-3 shadow-sm"><div className="flex justify-between gap-2"><div><p className="text-[10px] text-apex-orange font-bold uppercase tracking-wider">{item.format} · {item.pillar}</p><h3 className="text-sm font-bold text-white mt-1 leading-snug">{item.title}</h3></div><button onClick={() => deleteItem(item)} aria-label={`${item.title} içeriğini sil`} className="text-apex-muted hover:text-rose-400"><Trash2 className="w-3.5 h-3.5"/></button></div>{item.hook && <p className="text-xs text-neutral-300 leading-relaxed border-l-2 border-apex-orange pl-2.5">{item.hook}</p>}{item.project_id && <p className="text-[10px] text-apex-muted">Müşteri onayı: <span className={item.approval_status === 'Onaylandı' ? 'text-emerald-300' : item.approval_status === 'Revizyon İstendi' ? 'text-rose-300' : 'text-amber-300'}>{item.approval_status || 'Taslak'}</span></p>}{item.format === 'UGC' && <p className="text-[10px] text-amber-300 leading-relaxed">{item.client_name || 'Marka belirlenecek'} · {item.creator_name || 'Creator aranacak'}{item.delivery_due ? ` · Teslim ${item.delivery_due}` : ''}</p>}<div className="flex items-center justify-between gap-2"><select aria-label={`${item.title} aşaması`} value={item.stage} onChange={(event) => updateStage(item, event.target.value as ContentStage)} className="min-w-0 bg-apex-dark border border-apex-border rounded-lg px-2 py-1.5 text-[10px] text-white">{STAGES.map((option) => <option key={option}>{option}</option>)}</select><div className="flex items-center gap-2">{item.planned_for && <span className="text-[10px] text-apex-muted flex items-center gap-1"><CalendarDays className="w-3 h-3"/>{item.planned_for}</span>}<button onClick={() => copyBrief(item)} title="Üretim kartını kopyala" className="text-apex-orange hover:text-white"><Copy className="w-3.5 h-3.5"/></button></div></div>{item.project_id && <select aria-label={`${item.title} müşteri onayı`} value={item.approval_status || 'Taslak'} onChange={event=>updateApproval(item,event.target.value as ContentApprovalStatus)} className="w-full bg-apex-dark border border-apex-border rounded-lg px-2 py-1.5 text-[10px] text-white">{APPROVALS.map(option=><option key={option}>{option}</option>)}</select>}</article>)}{stageItems.length === 0 && <div className="h-24 grid place-items-center text-[11px] text-apex-muted italic"><Clapperboard className="w-4 h-4 mr-1"/>İçerik yok</div>}</div></section>)}
     </div>
     <div className="rounded-xl border border-apex-border bg-apex-card p-4 text-xs text-apex-muted leading-relaxed"><strong className="text-white">Çalışma kuralı:</strong> Gerçek ekran kaydı veya kendi çekiminiz ana malzemedir. Higgsfield yalnızca sahne/movement üretimi için kullanılır; logo, yazı ve CTA kurgu aşamasında eklenir. Karttaki “Üretim notu” alanı Claude/Codex/Higgsfield’e verilecek tek net brief olur.</div>
   </div></Shell>;

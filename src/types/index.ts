@@ -175,6 +175,7 @@ export interface BusinessExpense {
 
 export type ContentFormat = 'Reels' | 'Post' | 'Story' | 'Carousel' | 'Case Study' | 'UGC';
 export type ContentStage = 'Fikir' | 'Senaryo' | 'Üretimde' | 'İncelemede' | 'Planlandı' | 'Yayınlandı';
+export type ContentApprovalStatus = 'Taslak' | 'Müşteri İncelemesinde' | 'Onaylandı' | 'Revizyon İstendi';
 
 export interface ContentItem {
   id: string;
@@ -195,6 +196,11 @@ export interface ContentItem {
   owner_name?: string;
   client_name?: string;
   client_brand_id?: string;
+  project_id?: string;
+  approval_status?: ContentApprovalStatus;
+  approval_note?: string;
+  approved_at?: string;
+  approval_updated_at?: string;
   creator_name?: string;
   creator_status?: 'Aranacak' | 'Brief gönderildi' | 'Onaylandı' | 'İçerik geldi' | 'Revizyonda' | 'Teslim edildi';
   usage_rights?: string;
@@ -231,6 +237,23 @@ export interface ClientBrand {
   hosting_provider?: string;
   renewal_date?: string;
   notes?: string;
+}
+
+export interface ProjectBrandBrief {
+  id: string;
+  project_id: string;
+  client_brand_id?: string;
+  positioning: string;
+  target_audience: string;
+  primary_offer: string;
+  brand_voice: string;
+  must_use: string;
+  avoid: string;
+  reference_links: string[];
+  approval_status: 'Taslak' | 'Müşteri Bekliyor' | 'Onaylandı' | 'Revizyon İstendi';
+  client_feedback?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AgencyGoal {

@@ -50,3 +50,14 @@ test('Agent usage migration records token and estimated-cost fields', () => {
   assert.match(sql, /total_output_tokens/i);
   assert.match(sql, /estimated_cost_usd/i);
 });
+
+test('Client approval migration restricts portal decisions to published content', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase-v15-client-approval.sql'), 'utf8');
+  assert.match(sql, /project_brand_briefs/i);
+  assert.match(sql, /enable row level security/i);
+  assert.match(sql, /content_reviews/i);
+  assert.match(sql, /jsonb_array_elements\(coalesce\(s\.published->'content_items'/i);
+  assert.match(sql, /p_decision not in \('Onaylandı','Revizyon İstendi'\)/i);
+  assert.match(sql, /revoke all on function public\.crm_share_content_decision/i);
+  assert.match(sql, /grant execute on function public\.crm_share_content_decision.*anon,authenticated/i);
+});

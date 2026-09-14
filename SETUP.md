@@ -29,7 +29,7 @@ Bu doküman, **APEX KREATİF Sales & Project Management Dashboard** uygulamasın
 
 1. [Supabase Dashboard](https://supabase.com/dashboard) üzerinde oturum açın ve projenizi seçin (veya yeni proje oluşturun).
 2. Sol menüden **SQL Editor** bölümüne girin ve **New Query** butonuna tıklayın.
-3. Yeni kurulumda önce **`schema.sql`**, ardından numara sırasıyla **`supabase-v2`**–**`supabase-v14`** SQL dosyalarını çalıştırın. Mevcut canlı kurulumda yalnızca henüz uygulanmamış en yeni migration dosyalarını çalıştırın. `supabase-v12-agency-os.sql`, reklam performansı tablolarını ve güvenli teklif → proje → ödeme otomasyonunu; `supabase-v13-agent-center.sql` Agent Center geçmişi ve erişim kurallarını; `supabase-v14-agent-usage.sql` ise token ve tahmini maliyet kayıtlarını ekler.
+3. Yeni kurulumda önce **`schema.sql`**, ardından numara sırasıyla **`supabase-v2`**–**`supabase-v15`** SQL dosyalarını çalıştırın. Mevcut canlı kurulumda yalnızca henüz uygulanmamış en yeni migration dosyalarını çalıştırın. `supabase-v12-agency-os.sql`, reklam performansı tablolarını ve güvenli teklif → proje → ödeme otomasyonunu; `supabase-v13-agent-center.sql` Agent Center geçmişi ve erişim kurallarını; `supabase-v14-agent-usage.sql` token ve tahmini maliyet kayıtlarını; `supabase-v15-client-approval.sql` ise Marka Başlangıç dosyası ile içerik bazlı müşteri onayını ekler.
 4. **Project Settings** > **API** sekmesine gidin.
 5. Buradaki **Project URL** ve **anon public key** değerlerini kopyalayın.
 6. Projenizdeki `.env.local` dosyasını açıp değerleri yapıştırın:
