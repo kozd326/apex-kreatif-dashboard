@@ -67,6 +67,17 @@ export default function AgentsPage() {
     } catch { setMessage('İstek işlenemedi. Bağlantınızı kontrol edip tekrar deneyin.'); await load(); }
     finally { setBusy(false); }
   };
+  const startProject = async () => {
+    if (!projectId || brief.trim().length < 3) { setMessage('Proje Başlat için proje seçin ve en az kısa bir kickoff notu yazın.'); return; }
+    setBusy(true); setMessage('');
+    try {
+      const response = await fetch('/api/agents/run', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role: 'direktor', workflow: 'project-start', brandId: brandId || undefined, projectId, brief }) });
+      const payload = await response.json() as { error?: string; run?: AgentRun };
+      if (!response.ok || !payload.run) { setMessage(payload.error || 'Proje başlangıç raporu üretilemedi.'); await load(); return; }
+      setRuns((current) => [payload.run!, ...current.filter((item) => item.id !== payload.run!.id)]); setSelected(payload.run); setMessage('Proje başlangıç paketi Genel Koordinatör kontrolünden geçerek kaydedildi.');
+    } catch { setMessage('İstek işlenemedi. Bağlantınızı kontrol edip tekrar deneyin.'); }
+    finally { setBusy(false); }
+  };
   const copy = async (value?: string) => { if (!value) return; await navigator.clipboard.writeText(value); setMessage('Nihai rapor panoya kopyalandı.'); };
 
   return <Shell><div className="space-y-6">
@@ -81,6 +92,7 @@ export default function AgentsPage() {
         <label className="block text-xs text-apex-muted">Proje bağlamı<select value={projectId} onChange={(event) => setProjectId(event.target.value)} className="input mt-1"><option value="">Bağlam ekleme</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.client_name} — {project.project_name}</option>)}</select></label>
         <label className="block text-xs text-apex-muted">Görev brief’i<textarea value={brief} onChange={(event) => setBrief(event.target.value.slice(0, 8000))} maxLength={8000} rows={7} className="input mt-1 resize-y" placeholder={`${currentAgent?.label || 'Uzman'} için net görev yazın.`}/></label><p className="text-[10px] text-apex-muted -mt-2">Hassas kişisel veri girmeyin. Bu görev iki API çağrısıyla token kullanır.</p>
         <button disabled={busy || brief.trim().length < 3} className="w-full bg-apex-orange disabled:opacity-50 text-white rounded-lg py-3 text-xs font-bold flex justify-center items-center gap-2">{busy ? <><Loader2 className="w-4 h-4 animate-spin"/>Uzmanlar çalışıyor…</> : <><Sparkles className="w-4 h-4"/>Taslak üret ve Koordinatöre gönder</>}</button>
+        <button type="button" onClick={startProject} disabled={busy || !projectId || brief.trim().length < 3} className="w-full border border-apex-orange/60 disabled:opacity-50 text-apex-orange rounded-lg py-3 text-xs font-bold flex justify-center items-center gap-2"><Sparkles className="w-4 h-4"/>Proje Başlat · 5 uzman + Koordinatör</button><p className="text-[10px] text-apex-muted text-center">İlk hafta planı, içerik/çekim/tasarım yönü ve onay bekleyen kararları üretir. 6 API çağrısı kullanır; görev veya harcama otomatik oluşturmaz.</p>
       </form>
       <section className="bg-apex-card border border-apex-border rounded-2xl p-5 min-h-[620px]">
         <div className="flex justify-between items-center mb-4"><div><h2 className="text-sm font-bold text-white flex gap-2 items-center"><ClipboardCheck className="w-4 h-4 text-apex-orange"/>Nihai APEX Raporu</h2><p className="text-[11px] text-apex-muted mt-1">Genel Koordinatör denetiminden geçen son çıktı</p></div>{selected?.final_output && <button onClick={() => copy(selected.final_output)} className="text-xs text-apex-orange flex items-center gap-1"><Copy className="w-3.5 h-3.5"/>Kopyala</button>}</div>
