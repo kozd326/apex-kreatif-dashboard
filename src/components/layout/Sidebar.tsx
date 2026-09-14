@@ -44,6 +44,7 @@ const NAV_GROUPS = [
   { name: 'Kreatif Stüdyo', href: '/content', icon: Clapperboard },
   { name: 'Marka Başlangıç', href: '/onboarding', icon: FileSpreadsheet },
   { name: 'Agent Center', href: '/agents', icon: Bot },
+  { name: 'Ajans Otomasyonları', href: '/automations', icon: Zap },
   { name: 'Reklamlar', href: '/ads', icon: Megaphone },
   ] },
   { label: 'YÖNETİM', items: [
