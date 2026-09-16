@@ -61,3 +61,13 @@ test('Client approval migration restricts portal decisions to published content'
   assert.match(sql, /revoke all on function public\.crm_share_content_decision/i);
   assert.match(sql, /grant execute on function public\.crm_share_content_decision.*anon,authenticated/i);
 });
+
+test('Scheduled e-mail queue stays approval-first and has no browser write policy', () => {
+  const sql = fs.readFileSync(path.join(__dirname, '..', 'supabase-v17-scheduled-email.sql'), 'utf8');
+  assert.match(sql, /outreach_scheduled_emails/i);
+  assert.match(sql, /status in \('Taslak','Onay Bekliyor','Planlandı','Gönderiliyor','Gönderildi','Başarısız','İptal'\)/i);
+  assert.match(sql, /approved_by is not null and approved_at is not null/i);
+  assert.match(sql, /enable row level security/i);
+  assert.match(sql, /no browser INSERT\/UPDATE\/DELETE policies/i);
+  assert.doesNotMatch(sql, /for all to authenticated/i);
+});

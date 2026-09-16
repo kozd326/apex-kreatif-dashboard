@@ -347,6 +347,29 @@ export interface GrowthRecommendation {
   updated_at: string;
 }
 
+export type ScheduledEmailStatus = 'Taslak' | 'Onay Bekliyor' | 'Planlandı' | 'Gönderiliyor' | 'Gönderildi' | 'Başarısız' | 'İptal';
+
+export interface ScheduledEmail {
+  id: string;
+  lead_id: string;
+  to_email: string;
+  subject: string;
+  body_text: string;
+  scheduled_at: string;
+  timezone: string;
+  status: ScheduledEmailStatus;
+  created_by: string;
+  approved_by?: string;
+  approved_at?: string;
+  sent_at?: string;
+  provider_message_id?: string;
+  last_error?: string;
+  attempt_count: number;
+  created_at: string;
+  updated_at: string;
+  leads?: { company_name?: string; email?: string } | null;
+}
+
 export type AgentRunStatus = 'Çalışıyor' | 'Hazır' | 'Başarısız';
 export interface AgentRun {
   id: string;
