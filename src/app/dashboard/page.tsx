@@ -124,7 +124,7 @@ export default function DashboardPage() {
           <Action href="/projects" icon={CheckCircle2} title="Teslimatlar" count={overdueProjects.length} detail="termini geçen aktif proje" />
           <Action href="/content" icon={Clapperboard} title="Kreatif onayları" count={pendingContent.length} detail="geciken veya incelemede içerik" />
           <Action href="/payments" icon={WalletCards} title="Tahsilatlar" count={duePayments.length} detail="vadesi geçen ödeme" />
-          <Action href="/ads" icon={Megaphone} title="Reklam uyarıları" count={weakCampaigns.length} detail="harcama yapan fakat sonuçsuz kampanya" />
+          <Action href="/growth" icon={Megaphone} title="Büyüme merkezi" count={weakCampaigns.length} detail="ölçüm, SEO ve reklam kararları" />
         </div></section>
 
         {/* Grid Section: Funnel Chart + Today's Tasks */}

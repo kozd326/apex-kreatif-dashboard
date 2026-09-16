@@ -13,7 +13,10 @@
 }
 
 body {
-  background-color: #030303;
+  background:
+    radial-gradient(circle at top right, rgba(99, 102, 241, 0.18), transparent 34rem),
+    radial-gradient(circle at 0% 100%, rgba(254, 101, 0, 0.08), transparent 28rem),
+    #0A0F24;
   color: #ffffff;
   font-family: var(--font-inter);
 }
@@ -25,14 +28,14 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #09090b;
+  background: #0A0F24;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #27272a;
+  background: #27345F;
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #ff4d00;
+  background: #6366F1;
 }

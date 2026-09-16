@@ -28,6 +28,7 @@ import {
   ArchiveRestore,
   Megaphone,
   Bot,
+  Radar,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
@@ -45,7 +46,8 @@ const NAV_GROUPS = [
   { name: 'Marka Başlangıç', href: '/onboarding', icon: FileSpreadsheet },
   { name: 'Agent Center', href: '/agents', icon: Bot },
   { name: 'Ajans Otomasyonları', href: '/automations', icon: Zap },
-  { name: 'Reklamlar', href: '/ads', icon: Megaphone },
+  { name: 'Büyüme Merkezi', href: '/growth', icon: Radar, badge: 'Yeni' },
+  { name: 'Reklam Verileri', href: '/ads', icon: Megaphone },
   ] },
   { label: 'YÖNETİM', items: [
   { name: 'Tahsilatlar', href: '/payments', icon: WalletCards },
@@ -75,16 +77,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
     <aside className={`${mobileOpen ? 'flex fixed inset-y-0 left-0 z-50 shadow-2xl' : 'hidden'} md:flex md:sticky md:top-0 w-64 bg-apex-dark border-r border-apex-border flex-col justify-between h-screen shrink-0`}>
       <div>
         {/* APEX KREATİF Brand Header */}
-        <div className="h-16 px-6 flex items-center gap-3 border-b border-apex-border">
-          <div className="w-8 h-8 rounded-lg bg-apex-orange flex items-center justify-center font-black text-white text-sm transform -skew-x-12 shadow-lg shadow-apex-orange/30">
-            A
+        <div className="h-16 px-5 flex items-center gap-3 border-b border-apex-border bg-gradient-to-r from-apex-blue/15 to-transparent">
+          <div className="w-9 h-9 rounded-lg bg-white/95 border border-white/30 flex items-center justify-center shadow-lg shadow-apex-blue/20 overflow-hidden">
+            <img src="/logo-apex-transparent.png" alt="APEX Kreatif" className="w-full h-full object-contain p-1" />
           </div>
           <div>
             <span className="text-base font-black tracking-widest text-white block leading-tight">
-              APEX <span className="text-apex-orange font-bold">KREATİF</span>
+              APEX <span className="text-apex-blue font-bold">KREATİF</span>
             </span>
             <span className="text-[9px] font-mono text-apex-muted tracking-widest uppercase block leading-none">
-              SALES & PROJECT CRM
+              GROWTH OPERATING SYSTEM
             </span>
           </div>
         </div>
@@ -102,7 +104,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
                 onClick={onMobileClose}
                 className={`flex items-center justify-between px-3.5 py-2.5 rounded-lg text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-apex-orange text-white shadow-md shadow-apex-orange/20 font-bold'
+                    ? 'bg-apex-blue text-white shadow-md shadow-apex-blue/30 font-bold'
                     : 'text-apex-muted hover:text-white hover:bg-apex-card'
                 }`}
               >
@@ -111,7 +113,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
                   <span>{item.name}</span>
                 </div>
                 {item.badge && (
-                  <span className="text-[10px] bg-apex-orange-light text-apex-orange border border-apex-orange/30 px-1.5 py-0.5 rounded font-mono font-bold">
+                    <span className="text-[10px] bg-apex-orange-light text-apex-orange border border-apex-orange/30 px-1.5 py-0.5 rounded font-mono font-bold">
                     {item.badge}
                   </span>
                 )}
@@ -126,10 +128,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
         <div className="bg-apex-card border border-apex-border rounded-xl p-3 space-y-2">
           <div className="flex items-center gap-2 text-xs font-bold text-white">
             <Zap className="w-4 h-4 text-apex-orange" />
-            <span>Ajans Hizmetleri</span>
+            <span>APEX Büyüme Sistemi</span>
           </div>
           <p className="text-[11px] text-apex-muted leading-relaxed">
-            Web, Özel Yazılım, Randevu Dashboard, Sosyal Medya, Çekim & Edit, Marka Kimliği.
+            Strateji, web, SEO, reklam, içerik ve ölçüm tek onay akışında.
           </p>
         </div>
       </div>

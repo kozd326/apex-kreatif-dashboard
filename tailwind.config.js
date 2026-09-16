@@ -9,14 +9,17 @@ module.exports = {
     extend: {
       colors: {
         apex: {
-          orange: '#ff4d00',
-          'orange-hover': '#e64500',
-          'orange-light': 'rgba(255, 77, 0, 0.12)',
-          dark: '#030303',
-          card: '#0f0f11',
-          hover: '#161619',
-          border: '#222225',
-          muted: '#888890',
+          blue: '#6366F1',
+          'blue-hover': '#4F46E5',
+          'blue-light': 'rgba(99, 102, 241, 0.14)',
+          orange: '#FE6500',
+          'orange-hover': '#E85C00',
+          'orange-light': 'rgba(254, 101, 0, 0.13)',
+          dark: '#0A0F24',
+          card: '#121A38',
+          hover: '#18234A',
+          border: '#27345F',
+          muted: '#AAB5D7',
         },
       },
       fontFamily: {

@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'APEX KREATİF — Sales & Project Management Dashboard',
-  description: 'Ekip girişli müşteri adayları, satış takibi, teklifler ve proje yönetim paneli.',
+  title: 'APEX KREATİF — Growth OS',
+  description: 'APEX için satış, müşteri operasyonu, SEO ve reklam karar merkezi.',
 };
 
 export default function RootLayout({
