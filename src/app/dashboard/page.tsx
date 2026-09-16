@@ -1,26 +1,22 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Shell } from '@/components/layout/Shell';
-import { MetricCards } from '@/components/dashboard/MetricCards';
-import { SalesFunnelChart } from '@/components/dashboard/SalesFunnelChart';
 import { TodayTasksList } from '@/components/dashboard/TodayTasksList';
-import { ActivityFeed } from '@/components/dashboard/ActivityFeed';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
-import { INITIAL_LEADS, INITIAL_PROPOSALS, INITIAL_ACTIVITIES, INITIAL_TASKS } from '@/lib/mockData';
-import { AdCampaign, ContentItem, Lead, Payment, Project, Proposal, LeadActivity, Task, TeamMember } from '@/types';
+import { INITIAL_LEADS, INITIAL_PROPOSALS, INITIAL_TASKS } from '@/lib/mockData';
+import { AdCampaign, ContentItem, Lead, Payment, Project, Proposal, Task, TeamMember } from '@/types';
 import { Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { isOverdue, isToday } from '@/lib/utils';
 import { AlertTriangle, ArrowRight, CheckCircle2, Clapperboard, Megaphone, WalletCards } from 'lucide-react';
 
 export default function DashboardPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const isConfigured = isSupabaseConfigured();
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [proposals, setProposals] = useState<Proposal[]>([]);
-  const [activities, setActivities] = useState<LeadActivity[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -33,7 +29,6 @@ export default function DashboardPage() {
     if (!isConfigured) {
       setLeads(INITIAL_LEADS);
       setProposals(INITIAL_PROPOSALS);
-      setActivities(INITIAL_ACTIVITIES);
       setTasks(INITIAL_TASKS);
       return;
     }
@@ -43,9 +38,6 @@ export default function DashboardPage() {
 
     const { data: propsData } = await supabase.from('proposals').select('*').order('created_at', { ascending: false });
     if (propsData) setProposals(propsData as Proposal[]);
-
-    const { data: actsData } = await supabase.from('lead_activities').select('*').order('created_at', { ascending: false });
-    if (actsData) setActivities(actsData as LeadActivity[]);
 
     const { data: tasksData } = await supabase.from('tasks').select('*').order('due_date', { ascending: true });
     if (tasksData) setTasks(tasksData as Task[]);
@@ -74,6 +66,10 @@ export default function DashboardPage() {
   const duePayments=ownedPayments.filter(payment=>payment.status!=='Tamamlandı'&&isOverdue(payment.due_date));
   const pendingContent=ownedContent.filter(item=>item.stage==='İncelemede'||(item.stage!=='Yayınlandı'&&isOverdue(item.planned_for)));
   const weakCampaigns=ownedCampaigns.filter(c=>['Aktif','Testte'].includes(c.status)&&Number(c.spend)>0&&Number(c.results)===0);
+  const pendingProposalApprovals=(currentUser?.role==='Yönetici' ? proposals : proposals.filter((proposal)=>visibleLeads.some((lead)=>lead.id===proposal.lead_id))).filter((proposal)=>['Gönderildi','Revizyon'].includes(proposal.status));
+  const weekStart=Date.now()-7*24*60*60*1000;
+  const newLeadsThisWeek=visibleLeads.filter((lead)=>new Date(lead.created_at).getTime()>=weekStart).length;
+  const activeProjects=ownedProjects.filter((project)=>project.status!=='Tamamlandı').length;
 
   useEffect(() => {
     loadLiveData();
@@ -84,7 +80,6 @@ export default function DashboardPage() {
         .on('postgres_changes', { event: '*', schema: 'public', table: 'leads' }, () => loadLiveData())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'proposals' }, () => loadLiveData())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, () => loadLiveData())
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'lead_activities' }, () => loadLiveData())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'projects' }, () => loadLiveData())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'payments' }, () => loadLiveData())
         .on('postgres_changes', { event: '*', schema: 'public', table: 'content_items' }, () => loadLiveData())
@@ -100,44 +95,37 @@ export default function DashboardPage() {
   return (
     <Shell>
       <div className="space-y-6">
-        {/* Dashboard Title & Welcome Banner */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-apex-card border border-apex-border rounded-2xl p-6 shadow-xl">
           <div>
             <div className="flex items-center gap-2 text-apex-orange text-xs font-bold uppercase tracking-wider mb-1">
               <Sparkles className="w-4 h-4" />
-              <span>APEX KREATİF Satış & Proje Paneli</span>
+              <span>APEX KREATİF · Günlük kontrol</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-white tracking-tight">
-              Genel Durum & Satış Performansı
+              Bugün neye odaklanıyoruz?
             </h1>
-            <p className="text-xs text-apex-muted mt-1">{currentUser?.role === 'Yönetici' ? 'Ajansın tüm satış, operasyon ve finans özetini görüyorsunuz.' : `${currentUser?.role || 'Ekip'} görünümü: size atanan kayıtlar öne çıkarılır.`}</p>
+            <p className="text-xs text-apex-muted mt-1">{currentUser?.role === 'Yönetici' ? 'Sadece bugün aksiyon gerektiren satış, onay, teslimat ve tahsilat kayıtları.' : `${currentUser?.role || 'Ekip'} görünümü: size atanan öncelikli kayıtlar öne çıkarılır.`}</p>
           </div>
         </div>
 
-        {/* Top KPI Metric Cards */}
-        <MetricCards leads={visibleLeads} proposals={currentUser?.role === 'Yönetici' ? proposals : proposals.filter((proposal) => visibleLeads.some((lead) => lead.id === proposal.lead_id))} />
         {loadError&&<div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">{loadError}</div>}
 
-        <section><div className="flex items-center justify-between mb-3"><div><h2 className="text-lg font-black text-white">Günlük Kontrol Merkezi</h2><p className="text-[11px] text-apex-muted">Bugün müdahale gerektiren satış, üretim ve para akışı.</p></div><span className="text-xs font-bold text-apex-orange">{actionableFollowUps.length+overdueTasks.length+overdueProjects.length+duePayments.length+pendingContent.length+weakCampaigns.length} aksiyon</span></div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        <section><div className="flex items-center justify-between mb-3"><div><h2 className="text-lg font-black text-white">Bugünün öncelikleri</h2><p className="text-[11px] text-apex-muted">İlk bakışta yalnızca müdahale gerektiren kayıtlar.</p></div><span className="text-xs font-bold text-apex-orange">{actionableFollowUps.length+overdueTasks.length+overdueProjects.length+duePayments.length+pendingContent.length+pendingProposalApprovals.length+weakCampaigns.length} aksiyon</span></div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           <Action href="/today-calls" icon={AlertTriangle} title="Müşteri takipleri" count={actionableFollowUps.length} detail="geciken veya bugün yapılacak takip" />
-          <Action href="/tasks" icon={CheckCircle2} title="Görevler" count={overdueTasks.length} detail="geciken operasyon görevi" />
-          <Action href="/projects" icon={CheckCircle2} title="Teslimatlar" count={overdueProjects.length} detail="termini geçen aktif proje" />
-          <Action href="/content" icon={Clapperboard} title="Kreatif onayları" count={pendingContent.length} detail="geciken veya incelemede içerik" />
+          <Action href="/content" icon={Clapperboard} title="Onaylar" count={pendingContent.length+pendingProposalApprovals.length} detail="içerik veya teklif incelemede" />
+          <Action href="/tasks" icon={CheckCircle2} title="Teslimat riski" count={overdueTasks.length+overdueProjects.length} detail="geciken görev veya proje" />
           <Action href="/payments" icon={WalletCards} title="Tahsilatlar" count={duePayments.length} detail="vadesi geçen ödeme" />
           <Action href="/growth" icon={Megaphone} title="Büyüme merkezi" count={weakCampaigns.length} detail="ölçüm, SEO ve reklam kararları" />
         </div></section>
 
-        {/* Grid Section: Funnel Chart + Today's Tasks */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <SalesFunnelChart leads={visibleLeads} />
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.2fr_0.8fr]">
           <TodayTasksList leads={visibleLeads} tasks={visibleTasks} />
+          <section className="rounded-2xl border border-apex-border bg-apex-card p-5"><p className="text-xs font-bold uppercase tracking-widest text-apex-orange">Haftalık görünüm</p><h2 className="mt-2 text-lg font-black text-white">Ajans ritmi</h2><p className="mt-1 text-xs leading-5 text-apex-muted">Bu kartlar sonuç iddiası değil; ekibin mevcut kayıtlarının sade özeti.</p><div className="mt-5 grid grid-cols-2 gap-3"><Pulse label="Yeni aday" value={String(newLeadsThisWeek)} detail="son 7 gün"/><Pulse label="Aktif proje" value={String(activeProjects)} detail="tamamlanmamış"/><Pulse label="Onay bekleyen" value={String(pendingContent.length+pendingProposalApprovals.length)} detail="içerik + teklif"/><Pulse label="Takipte kampanya" value={String(ownedCampaigns.filter((campaign)=>['Aktif','Testte'].includes(campaign.status)).length)} detail="manuel veri takibi"/></div><Link href="/reports" className="mt-5 inline-flex items-center gap-2 text-xs font-bold text-apex-blue hover:text-white">Tüm raporları aç <ArrowRight className="h-4 w-4"/></Link></section>
         </div>
-
-        {/* Bottom Section: Activity Feed */}
-        <ActivityFeed activities={activities} />
       </div>
     </Shell>
   );
 }
 
 function Action({href,icon:Icon,title,count,detail}:{href:string;icon:React.ElementType;title:string;count:number;detail:string}){return <Link href={href} className="bg-apex-card border border-apex-border hover:border-apex-orange/60 rounded-xl p-4 flex justify-between items-center"><div className="flex gap-3 items-center"><Icon className={`w-5 h-5 ${count?'text-apex-orange':'text-emerald-400'}`}/><div><p className="text-sm font-bold text-white">{title}</p><p className="text-[11px] text-apex-muted">{count} {detail}</p></div></div><ArrowRight className="w-4 h-4 text-apex-orange"/></Link>}
+function Pulse({label,value,detail}:{label:string;value:string;detail:string}){return <div className="rounded-xl border border-apex-border bg-apex-dark/55 p-3"><p className="text-[10px] uppercase tracking-wide text-apex-muted">{label}</p><p className="mt-2 text-xl font-black text-white">{value}</p><p className="mt-1 text-[10px] text-apex-muted">{detail}</p></div>}

@@ -315,6 +315,38 @@ export interface AdCampaign {
   updated_at: string;
 }
 
+export type GrowthMeasurementStatus = 'Planlanmadı' | 'Kurulumda' | 'Doğrulandı';
+/** Mirrors the v16 database constraint; labels in the UI can be more descriptive. */
+export type GrowthRecommendationArea = 'Ölçüm' | 'SEO' | 'Meta' | 'Google Ads' | 'İçerik' | 'Web';
+export type GrowthRecommendationStatus = 'Taslak' | 'Onay Bekliyor' | 'Onaylandı' | 'Reddedildi' | 'Uygulandı';
+
+export interface GrowthWorkspace {
+  id: string;
+  project_id?: string;
+  client_brand_id?: string;
+  website_url?: string;
+  primary_conversion?: string;
+  monthly_media_budget?: number;
+  measurement_status: GrowthMeasurementStatus;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface GrowthRecommendation {
+  id: string;
+  workspace_id: string;
+  area: GrowthRecommendationArea;
+  title: string;
+  rationale: string;
+  proposed_change: string;
+  risk_note?: string;
+  status: GrowthRecommendationStatus;
+  approved_by?: string;
+  approved_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type AgentRunStatus = 'Çalışıyor' | 'Hazır' | 'Başarısız';
 export interface AgentRun {
   id: string;
