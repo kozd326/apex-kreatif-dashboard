@@ -106,6 +106,7 @@ export default function DashboardPage() {
             </h1>
             <p className="text-xs text-apex-muted mt-1">{currentUser?.role === 'Yönetici' ? 'Sadece bugün aksiyon gerektiren satış, onay, teslimat ve tahsilat kayıtları.' : `${currentUser?.role || 'Ekip'} görünümü: size atanan öncelikli kayıtlar öne çıkarılır.`}</p>
           </div>
+          <Link href="/assistant" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-apex-blue px-4 py-3 text-xs font-bold text-white shadow-lg shadow-apex-blue/30 transition hover:bg-[#5457dc]"><Sparkles className="h-4 w-4 text-apex-orange" />APEX Asistana sor</Link>
         </div>
 
         {loadError&&<div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">{loadError}</div>}

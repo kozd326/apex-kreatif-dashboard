@@ -26,6 +26,7 @@ import {
 const NAV_GROUPS = [
   { label: 'GENEL', items: [
     { name: 'Genel Bakış', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'APEX Asistan', href: '/assistant', icon: Bot, badge: 'Yeni' },
   ] },
   { label: 'SATIŞ', items: [
     { name: 'Müşteri Adayları', href: '/leads', icon: Users },
@@ -51,7 +52,7 @@ const NAV_GROUPS = [
   ] },
   { label: 'SİSTEM', items: [
     { name: 'Otomasyonlar', href: '/automations', icon: Zap },
-    { name: 'Agent Center', href: '/agents', icon: Bot },
+    { name: 'Uzman Çalışmaları', href: '/agents', icon: Bot },
     { name: 'Şablonlar & Araçlar', href: '/templates', icon: Settings },
   ] },
 ];
@@ -119,7 +120,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ mobileOpen = false, onMobileCl
             <span>APEX Büyüme Sistemi</span>
           </div>
           <p className="text-[11px] text-apex-muted leading-relaxed">
-            Strateji, web, SEO, reklam, içerik ve ölçüm tek onay akışında.
+            İşi anlatın; sistem taslağı hazırlasın. Uygulama her zaman sizin onayınızla ilerler.
           </p>
         </div>
       </div>
