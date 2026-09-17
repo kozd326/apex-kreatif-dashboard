@@ -6,10 +6,11 @@ import { LeadTable } from '@/components/leads/LeadTable';
 import { LeadKanban } from '@/components/leads/LeadKanban';
 import { LeadDetailDrawer } from '@/components/leads/LeadDetailDrawer';
 import { LeadModal } from '@/components/leads/LeadModal';
+import { QuickProspectInput, QuickProspectModal } from '@/components/leads/QuickProspectModal';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { INITIAL_LEADS, INITIAL_ACTIVITIES, INITIAL_TEAM } from '@/lib/mockData';
 import { Lead, LeadActivity, LeadStatus, TeamMember } from '@/types';
-import { LayoutGrid, Table as TableIcon, Plus, Search, Filter } from 'lucide-react';
+import { LayoutGrid, Table as TableIcon, Plus, Search, Zap } from 'lucide-react';
 
 export default function LeadsPage() {
   const supabase = createClient();
@@ -22,6 +23,7 @@ export default function LeadsPage() {
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isQuickProspectOpen, setIsQuickProspectOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
 
   // Filters
@@ -189,6 +191,33 @@ export default function LeadsPage() {
     loadLiveData();
   };
 
+  const handleSaveQuickProspect = async (input: QuickProspectInput) => {
+    if (!isConfigured || !currentUser) throw new Error('Oturum veya yazma yetkisi bulunamadı.');
+    const { data, error } = await supabase.from('leads').insert({
+      company_name: input.company_name,
+      sector: input.sector || null,
+      source_url: input.source_url || null,
+      phone: null,
+      decision_maker: null,
+      city_district: null,
+      priority: 'Orta',
+      status: 'Yeni',
+      assigned_to: currentUser.id,
+      assigned_name: currentUser.name,
+      next_step_date: input.next_step_date || null,
+      notes: input.notes || null,
+      contact_reason: 'İlk görüşme sonrası hızlı aday kaydı.',
+      estimated_deal_value: 0,
+      win_probability: 0,
+      created_by: currentUser.id,
+    }).select('id').single();
+    if (error || !data) throw new Error(error?.message || 'Aday kaydedilemedi.');
+    const note = input.notes ? `Not: ${input.notes}` : 'İletişim bilgileri ve ihtiyaç özeti tamamlanacak.';
+    await supabase.from('lead_activities').insert({ lead_id: data.id, user_id: currentUser.id, user_name: currentUser.name, type: 'Not', description: `Hızlı aday kaydı oluşturuldu. ${note}` });
+    setIsQuickProspectOpen(false);
+    await loadLiveData();
+  };
+
   const handleUpdateStatus = async (leadId: string, newStatus: LeadStatus) => {
     if (!isConfigured) return;
     const { error } = await supabase.from('leads').update({ status: newStatus }).eq('id', leadId);
@@ -354,7 +383,8 @@ export default function LeadsPage() {
               </button>
             </div>
 
-            {currentUser && (currentUser.role === 'Yönetici' || currentUser.role === 'Satış') && (
+            {currentUser && (currentUser.role === 'Yönetici' || currentUser.role === 'Satış') && <>
+              <button onClick={() => setIsQuickProspectOpen(true)} className="flex items-center gap-2 border border-apex-blue/50 bg-apex-blue-light px-4 py-2 text-xs font-bold text-apex-blue transition-colors hover:text-white rounded-lg"><Zap className="w-4 h-4"/><span>Hızlı Aday Ekle</span></button>
               <button
                 onClick={() => {
                   setEditingLead(null);
@@ -363,9 +393,9 @@ export default function LeadsPage() {
                 className="flex items-center gap-2 bg-apex-orange hover:bg-apex-orange-hover text-white text-xs font-bold px-4 py-2 rounded-lg shadow-lg shadow-apex-orange/20 transition-colors"
               >
                 <Plus className="w-4 h-4" />
-                <span>Yeni Müşteri Ekle</span>
+                <span>Detaylı Aday Ekle</span>
               </button>
-            )}
+            </>}
           </div>
         </div>
 
@@ -473,6 +503,7 @@ export default function LeadsPage() {
             onSave={handleSaveLead}
           />
         )}
+        {isQuickProspectOpen && currentUser && <QuickProspectModal currentUser={currentUser} onClose={() => setIsQuickProspectOpen(false)} onSave={handleSaveQuickProspect}/>}
       </div>
     </Shell>
   );

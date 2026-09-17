@@ -8,6 +8,7 @@ import {
   Users,
   PhoneCall,
   FileSpreadsheet,
+  Boxes,
   Clapperboard,
   Briefcase,
   CheckSquare,
@@ -34,6 +35,7 @@ const NAV_GROUPS = [
     { name: 'Müşteri Adayları', href: '/leads', icon: Users },
     { name: 'Bugünkü Takipler', href: '/today-calls', icon: PhoneCall, badge: 'Öncelikli' },
     { name: 'Teklifler', href: '/proposals', icon: FileSpreadsheet },
+    { name: 'Çözüm Kütüphanesi', href: '/solutions', icon: Boxes },
     { name: 'Mesajlar & Akışlar', href: '/outreach', icon: Send },
   ] },
   { label: 'MÜŞTERİLER', items: [

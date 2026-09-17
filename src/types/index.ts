@@ -98,6 +98,8 @@ export type ProposalStatus = 'Taslak' | 'Gönderildi' | 'Revizyon' | 'Kabul' | '
 export interface Proposal {
   id: string;
   lead_id?: string;
+  /** Optional reusable product/demo selected while preparing the offer. */
+  solution_id?: string;
   lead_name: string;
   title: string;
   service_package: string;
@@ -110,6 +112,71 @@ export interface Proposal {
   follow_up_reminder_date?: string;
   created_by?: string;
   created_at: string;
+}
+
+export type SolutionStatus = 'Taslak' | 'Satışa Hazır' | 'Arşiv';
+
+/**
+ * A reusable sector solution prepared by the APEX team (for example a clinic
+ * dashboard demo). It is deliberately separate from a client project so the
+ * same product can be adapted into more than one proposal.
+ */
+export interface SolutionLibraryItem {
+  id: string;
+  name: string;
+  sector: string;
+  category: string;
+  status: SolutionStatus;
+  description?: string;
+  modules: string[];
+  deliverables: string[];
+  demo_url?: string;
+  cover_url?: string;
+  proposal_defaults?: Record<string, unknown>;
+  created_by?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProposalModule {
+  title: string;
+  summary: string;
+  items: string[];
+}
+
+export interface ProposalPhase {
+  title: string;
+  duration: string;
+  detail: string;
+}
+
+/** Stored as the proposal document's JSON content and rendered as the A4 PDF. */
+export interface ProposalDesignDocument {
+  version: 1;
+  proposal_type: string;
+  client_name: string;
+  project_title: string;
+  project_summary: string;
+  project_goal: string;
+  solution_name?: string;
+  scope_modules: ProposalModule[];
+  technical_details: string[];
+  included: string[];
+  excluded: string[];
+  timeline_business_days: string;
+  timeline_phases: ProposalPhase[];
+  apex_responsibilities: string[];
+  client_responsibilities: string[];
+  list_price: number;
+  discount_amount: number;
+  net_price: number;
+  deposit_percent: number;
+  payment_note: string;
+  validity_note: string;
+  special_notes: string;
+  next_step: string;
+  prepared_date: string;
+  valid_until?: string;
 }
 
 export type ProjectStatus =
