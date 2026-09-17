@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, ExternalLink, FileDown, FilePlus2, Send, Sparkles } from 'lucide-react';
+import { CheckCircle2, Edit3, ExternalLink, FileDown, FilePlus2, Send, Sparkles, Trash2 } from 'lucide-react';
 import { Shell } from '@/components/layout/Shell';
 import { Proposal, ProposalStatus, TeamMember } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -154,6 +154,35 @@ export default function ProposalsPage() {
     await load();
   };
 
+  const deleteProposal = async (proposal: Proposal) => {
+    if (!configured) return;
+    if (currentUser && !['Yönetici', 'Satış'].includes(currentUser.role)) {
+      setError('Teklif silme yetkisi için Satış veya Yönetici rolü gerekir.');
+      return;
+    }
+    if (proposal.status === 'Kabul') {
+      alert('Kabul edilmiş ve projeye dönüştürülmüş teklifler silinemez.');
+      return;
+    }
+    const confirmed = window.confirm(
+      `“${proposal.lead_name} — ${proposal.title}” teklifini silmek istediğinize emin misiniz?\n\nBu işlem teklif kaydını ve hazırlanan PDF içeriğini kalıcı olarak siler.`
+    );
+    if (!confirmed) return;
+
+    setError('');
+    try {
+      await supabase.from('crm_documents').delete().eq('entity_type', 'proposal').eq('entity_id', proposal.id);
+      const { error: deleteError } = await supabase.from('proposals').delete().eq('id', proposal.id);
+      if (deleteError) {
+        setError(`Teklif silinemedi: ${deleteError.message}`);
+        return;
+      }
+      await load();
+    } catch (err) {
+      setError(`Silme işlemi başarısız oldu: ${err instanceof Error ? err.message : 'Bilinmeyen hata'}`);
+    }
+  };
+
   const canWrite = currentUser && ['Yönetici', 'Satış'].includes(currentUser.role);
   const sent = proposals.filter((item) => item.status === 'Gönderildi' || item.status === 'Revizyon').length;
   const drafts = proposals.filter((item) => item.status === 'Taslak').length;
@@ -268,7 +297,7 @@ export default function ProposalsPage() {
                         </span>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center justify-end gap-1.5">
                           <Link
                             href={`/proposals/${proposal.id}`}
                             className="inline-flex items-center gap-1.5 rounded-lg border border-apex-border px-2.5 py-2 text-xs font-bold text-apex-muted hover:border-apex-blue hover:text-white"
@@ -277,6 +306,16 @@ export default function ProposalsPage() {
                             <FileDown className="h-4 w-4" />
                             PDF
                           </Link>
+                          {canWrite && (
+                            <Link
+                              href={`/proposals/${proposal.id}/edit`}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-apex-border px-2.5 py-2 text-xs font-bold text-apex-muted hover:border-amber-400 hover:text-amber-300 transition"
+                              title="Fiyat, kapsam veya şartları düzenle"
+                            >
+                              <Edit3 className="h-4 w-4" />
+                              Düzenle
+                            </Link>
+                          )}
                           {canWrite && proposal.status === 'Taslak' && (
                             <button
                               onClick={() => changeStatus(proposal, 'Gönderildi')}
@@ -300,6 +339,16 @@ export default function ProposalsPage() {
                               <Sparkles className="h-4 w-4" />
                               Projeye Dönüştü
                             </span>
+                          )}
+                          {canWrite && proposal.status !== 'Kabul' && (
+                            <button
+                              type="button"
+                              onClick={() => deleteProposal(proposal)}
+                              className="inline-flex items-center justify-center rounded-lg border border-red-500/30 bg-red-500/10 p-2 text-xs font-bold text-red-400 hover:border-red-500 hover:bg-red-500/20 hover:text-red-300 transition"
+                              title="Hatalı veya test teklifini sil"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
                           )}
                         </div>
                       </td>

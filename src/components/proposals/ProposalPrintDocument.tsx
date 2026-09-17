@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Download, ExternalLink, FileText, Printer, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Download, Edit3, ExternalLink, FileText, Printer, RefreshCw } from 'lucide-react';
 import { Proposal, ProposalDesignDocument } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { currency, createProposalDesign, todayIso } from '@/lib/proposalDesign';
@@ -46,7 +46,7 @@ export function ProposalPrintDocument({ proposalId }: Props) {
   const balance = document.net_price - deposit;
 
   return <div className="proposal-document mx-auto max-w-[1120px] pb-16">
-    <div className="proposal-toolbar no-print sticky top-3 z-30 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-apex-border bg-apex-card/95 p-3 shadow-xl backdrop-blur"><Link href="/proposals" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-apex-muted hover:bg-apex-dark hover:text-white"><ArrowLeft className="h-4 w-4"/>Teklif listesi</Link><div className="flex items-center gap-2"><button onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-apex-border px-3 py-2 text-xs font-bold text-apex-muted hover:text-white"><RefreshCw className="h-4 w-4"/>Yenile</button><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-apex-orange px-4 py-2 text-xs font-black text-white hover:bg-apex-orange-hover"><Printer className="h-4 w-4"/>PDF olarak kaydet</button></div></div>
+    <div className="proposal-toolbar no-print sticky top-3 z-30 mb-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-apex-border bg-apex-card/95 p-3 shadow-xl backdrop-blur"><Link href="/proposals" className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold text-apex-muted hover:bg-apex-dark hover:text-white"><ArrowLeft className="h-4 w-4"/>Teklif listesi</Link><div className="flex items-center gap-2"><Link href={`/proposals/${proposalId}/edit`} className="inline-flex items-center gap-2 rounded-xl border border-apex-blue/50 bg-apex-blue-light px-3 py-2 text-xs font-bold text-apex-blue hover:text-white"><Edit3 className="h-4 w-4"/>Teklifi Düzenle</Link><button onClick={load} className="inline-flex items-center gap-2 rounded-xl border border-apex-border px-3 py-2 text-xs font-bold text-apex-muted hover:text-white"><RefreshCw className="h-4 w-4"/>Yenile</button><button onClick={() => window.print()} className="inline-flex items-center gap-2 rounded-xl bg-apex-orange px-4 py-2 text-xs font-black text-white hover:bg-apex-orange-hover"><Printer className="h-4 w-4"/>PDF olarak kaydet</button></div></div>
     <p className="no-print mb-4 text-center text-xs text-apex-muted">Tarayıcı penceresinde <strong className="text-white">PDF olarak kaydet</strong> seçeneğini kullanın. Belge henüz müşteriye otomatik olarak gönderilmez.</p>
 
     <article className="proposal-pages text-[#131313]">

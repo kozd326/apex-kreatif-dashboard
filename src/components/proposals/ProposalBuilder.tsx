@@ -21,7 +21,7 @@ import {
   Video,
   Zap,
 } from 'lucide-react';
-import { Lead, ProposalDesignDocument, ProposalModule, SolutionLibraryItem, TeamMember } from '@/types';
+import { Lead, Proposal, ProposalDesignDocument, ProposalModule, SolutionLibraryItem, TeamMember } from '@/types';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
 import { APEX_PROPOSAL_MODULES, APEX_PROPOSAL_PHASES, createProposalDesign, fromLines, plusDaysIso, todayIso, toLines } from '@/lib/proposalDesign';
 import { SERVICE_PACKAGES, ServicePackageDefinition } from '@/lib/servicePackages';
@@ -86,9 +86,13 @@ function copyModules(modules: ProposalModule[]) {
   return modules.map((module) => ({ ...module, items: [...module.items] }));
 }
 
-export function ProposalBuilder() {
+export function ProposalBuilder({ proposalId: propProposalId }: { proposalId?: string } = {}) {
   const router = useRouter();
   const params = useSearchParams();
+  const queryProposalId = params.get('edit') || params.get('proposalId') || params.get('id');
+  const activeProposalId = propProposalId || queryProposalId || null;
+  const isEditing = Boolean(activeProposalId);
+
   const supabase = useMemo(() => createClient(), []);
   const configured = isSupabaseConfigured();
   const [form, setForm] = useState<BuilderState>({
@@ -100,6 +104,8 @@ export function ProposalBuilder() {
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [docRevision, setDocRevision] = useState(1);
+  const [packageFeedback, setPackageFeedback] = useState('');
 
   const netPrice = Math.max(0, Number(form.listPrice || 0) - Number(form.discount || 0));
 
@@ -117,11 +123,58 @@ export function ProposalBuilder() {
       const { data } = await supabase.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
       if (data) setCurrentUser(data as TeamMember);
     }
-  }, [configured, supabase]);
+
+    if (activeProposalId) {
+      const [proposalRes, docRes] = await Promise.all([
+        supabase.from('proposals').select('*').eq('id', activeProposalId).maybeSingle(),
+        supabase.from('crm_documents').select('*').eq('entity_type', 'proposal').eq('entity_id', activeProposalId).maybeSingle(),
+      ]);
+
+      if (proposalRes.data) {
+        const prop = proposalRes.data as Proposal;
+        const doc = docRes.data;
+        if (doc?.revision) setDocRevision(doc.revision);
+        const content = (doc?.content || {}) as Partial<ProposalDesignDocument>;
+
+        const listVal = Number(content.list_price ?? prop.amount ?? 0);
+        const discVal = Number(content.discount_amount ?? 0);
+
+        setForm({
+          leadId: prop.lead_id || '',
+          clientName: content.client_name || prop.lead_name || '',
+          title: content.project_title || prop.title || '',
+          packageName: prop.service_package || 'Kurumsal Web Sitesi + Sosyal Medya + Çekim & Edit',
+          solutionId: prop.solution_id || '',
+          proposalType: content.proposal_type || 'Dijital proje teklifi',
+          summary: content.project_summary || '',
+          goal: content.project_goal || '',
+          scopeModules:
+            content.scope_modules && content.scope_modules.length
+              ? content.scope_modules
+              : copyModules(SERVICE_PACKAGES[0]?.modules || APEX_PROPOSAL_MODULES),
+          technicalDetails: fromLines(content.technical_details),
+          included: fromLines(content.included),
+          excluded: fromLines(content.excluded),
+          timelineDays: content.timeline_business_days || 'Görüşme sonrası netleştirilecek',
+          apexResponsibilities: fromLines(content.apex_responsibilities),
+          clientResponsibilities: fromLines(content.client_responsibilities),
+          listPrice: listVal,
+          discount: discVal,
+          depositPercent: Number(content.deposit_percent ?? 50),
+          paymentNote: content.payment_note || '',
+          validityNote: content.validity_note || '',
+          specialNotes: content.special_notes || '',
+          nextStep: content.next_step || '',
+          validUntil: prop.valid_until || content.valid_until || plusDaysIso(7),
+        });
+      }
+    }
+  }, [activeProposalId, configured, supabase]);
 
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
+    if (isEditing) return;
     const linkedLeadId = params.get('lead');
     if (!linkedLeadId || !leads.length || form.leadId) return;
     const lead = leads.find((item) => item.id === linkedLeadId);
@@ -134,7 +187,7 @@ export function ProposalBuilder() {
       packageName: lead.recommended_package || current.packageName,
       summary: lead.mini_audit_notes || current.summary,
     }));
-  }, [form.leadId, leads, params]);
+  }, [form.leadId, isEditing, leads, params]);
 
   const update = <K extends keyof BuilderState>(key: K, value: BuilderState[K]) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -181,14 +234,18 @@ export function ProposalBuilder() {
     setForm((current) => ({
       ...current,
       packageName: selected.name,
-      summary: current.summary || selected.tagline || selected.scope,
+      summary: selected.tagline || selected.scope,
       timelineDays: selected.timeline,
-      listPrice: current.listPrice === 0 ? selected.suggestedListPrice : current.listPrice,
+      listPrice: selected.suggestedListPrice,
+      discount: 0,
       depositPercent: selected.depositPercent || 50,
-      scopeModules: selected.modules.map((m) => ({ ...m, items: [...m.items] })),
+      scopeModules: copyModules(selected.modules),
       included: selected.included.join('\n'),
       excluded: selected.excluded.join('\n'),
     }));
+    setPackageFeedback(
+      `"${selected.name}" paketi uygulandı. (Önerilen Liste Fiyatı: ${formatCurrency(selected.suggestedListPrice)} yüklendi)`
+    );
   };
 
   const updateModule = (index: number, field: keyof ProposalModule, value: string | string[]) => {
@@ -252,6 +309,44 @@ export function ProposalBuilder() {
       valid_until: form.validUntil,
     });
 
+    if (activeProposalId) {
+      const { error: proposalError } = await supabase
+        .from('proposals')
+        .update({
+          lead_id: form.leadId || null,
+          solution_id: form.solutionId || null,
+          lead_name: design.client_name,
+          title: design.project_title,
+          service_package: form.packageName || 'Özel proje teklifi',
+          amount: design.net_price,
+          valid_until: form.validUntil || null,
+          notes: `${design.project_summary}\n\nKapsam ve ödeme planı APEX teklif belgesinde ayrıntılı olarak yer alır.`,
+        })
+        .eq('id', activeProposalId);
+
+      if (proposalError) {
+        setError(`Teklif güncellenemedi: ${proposalError.message}`);
+        setSaving(false);
+        return;
+      }
+
+      const { error: documentError } = await supabase.rpc('crm_save_document', {
+        p_type: 'proposal',
+        p_id: activeProposalId,
+        p_content: design,
+        p_revision: docRevision,
+      });
+
+      if (documentError) {
+        setError(`Teklif güncellendi ancak PDF içeriği kaydedilemedi: ${documentError.message}`);
+        setSaving(false);
+        return;
+      }
+
+      router.replace(`/proposals/${activeProposalId}`);
+      return;
+    }
+
     const { data: proposal, error: proposalError } = await supabase
       .from('proposals')
       .insert({
@@ -304,7 +399,9 @@ export function ProposalBuilder() {
             <ArrowLeft className="h-4 w-4" /> Teklif listesine dön
           </Link>
           <p className="mt-5 text-[10px] font-black uppercase tracking-[.2em] text-apex-orange">APEX teklif stüdyosu</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Teklifi Birlikte Kuralım.</h1>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-white">
+            {isEditing ? `Teklifi Düzenle: ${form.clientName || 'Taslak'}` : 'Teklifi Birlikte Kuralım.'}
+          </h1>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-apex-muted">
             Hazır hizmet paketini seçin; modüller, teslimat kalemleri, tahmini süre ve bütçe tek tıkla otomatik doldurulsun. Fiyat, süre ve şartlar yalnızca sizin girdiğiniz bilgilerden oluşur.
           </p>
@@ -312,7 +409,9 @@ export function ProposalBuilder() {
         <div className="rounded-2xl border border-apex-blue/40 bg-apex-blue-light p-4 text-xs leading-5 text-apex-muted">
           <span className="font-bold text-white">Güvenli İş Akışı:</span>
           <br />
-          Önce taslak oluşturulur. Müşteriye iletme ve kabul kararı ayrı aksiyonlardır.
+          {isEditing
+            ? 'Düzenlemeleri kaydedip doğrudan güncellenmiş PDF önizlemesini inceleyebilirsiniz.'
+            : 'Önce taslak oluşturulur. Müşteriye iletme ve kabul kararı ayrı aksiyonlardır.'}
         </div>
       </div>
 
@@ -483,6 +582,22 @@ export function ProposalBuilder() {
               );
             })}
           </div>
+
+          {packageFeedback && (
+            <div className="flex items-center justify-between rounded-2xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-xs font-bold text-emerald-300 shadow-md">
+              <span className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-400" />
+                {packageFeedback}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPackageFeedback('')}
+                className="text-emerald-400 hover:text-white text-xs font-semibold px-2 py-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
         </div>
 
         {/* EDITABLE MODULES LIST */}
@@ -647,14 +762,16 @@ export function ProposalBuilder() {
       <div className="sticky bottom-4 flex flex-col gap-3 rounded-2xl border border-apex-border bg-apex-card/95 p-4 shadow-2xl backdrop-blur md:flex-row md:items-center md:justify-between">
         <p className="text-xs leading-5 text-apex-muted">
           <Sparkles className="mr-1 inline h-4 w-4 text-apex-orange" />
-          Kaydettiğiniz teklif taslak olarak saklanır ve doğrudan A4 PDF önizlemesine yönlendirilir.
+          {isEditing
+            ? 'Yaptığınız değişiklikler doğrudan teklif belgesine ve PDF önizlemesine işlenir.'
+            : 'Kaydettiğiniz teklif taslak olarak saklanır ve doğrudan A4 PDF önizlemesine yönlendirilir.'}
         </p>
         <button
           disabled={saving}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-apex-orange px-6 py-3.5 text-sm font-black text-white shadow-lg shadow-apex-orange/30 transition hover:bg-apex-orange-hover disabled:opacity-60"
         >
           <Save className="h-4 w-4" />
-          {saving ? 'Kaydediliyor…' : 'Taslağı Oluştur ve A4 PDF Önizle'}
+          {saving ? 'Kaydediliyor…' : isEditing ? 'Değişiklikleri Kaydet & PDF Önizle' : 'Taslağı Oluştur ve A4 PDF Önizle'}
         </button>
       </div>
     </form>
