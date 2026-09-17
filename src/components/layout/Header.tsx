@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Lead, Payment, Task, TeamMember } from '@/types';
@@ -15,11 +15,15 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ currentUser, onOpenAddLeadModal, onOpenMobileNav }) => {
   const router = useRouter();
-  const supabase = createClient();
+  // Keep the browser client stable so loading alerts cannot cause a render loop.
+  const supabase = useMemo(() => createClient(), []);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [alerts, setAlerts] = useState<{ label: string; href: string }[]>([]);
+  const currentUserName = currentUser?.name?.trim() || 'Kullanıcı';
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadAlerts() {
       if (!currentUser) return;
       const [leadResult, taskResult, paymentResult] = await Promise.all([
@@ -34,9 +38,12 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, onOpenAddLeadModal,
         ...tasks.filter((task) => (own || task.assigned_to === currentUser.id) && task.status !== 'Tamamlandı' && isOverdue(task.due_date)).map((task) => ({ label: `${task.title}: görev gecikti`, href: '/tasks' })),
         ...payments.filter((payment) => payment.status !== 'Tamamlandı' && isOverdue(payment.due_date)).map((payment) => ({ label: `${payment.title}: tahsilat vadesi geçti`, href: '/payments' })),
       ];
-      setAlerts(nextAlerts.slice(0, 8));
+      if (!cancelled) setAlerts(nextAlerts.slice(0, 8));
     }
-    loadAlerts();
+    void loadAlerts();
+    return () => {
+      cancelled = true;
+    };
   }, [currentUser, supabase]);
 
   const handleSignOut = async () => {
@@ -89,10 +96,10 @@ export const Header: React.FC<HeaderProps> = ({ currentUser, onOpenAddLeadModal,
           {currentUser ? (
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-apex-orange/20 border border-apex-orange/40 flex items-center justify-center text-apex-orange font-bold text-xs">
-                {currentUser.name.charAt(0).toUpperCase()}
+                {currentUserName.charAt(0).toUpperCase()}
               </div>
               <div className="text-left hidden sm:block">
-                <p className="text-xs font-bold text-white leading-tight">{currentUser.name}</p>
+                <p className="text-xs font-bold text-white leading-tight">{currentUserName}</p>
                 <p className="text-[10px] text-apex-muted leading-tight">{currentUser.role}</p>
               </div>
             </div>

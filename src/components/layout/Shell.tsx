@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
@@ -13,13 +13,17 @@ interface ShellProps {
 }
 
 export const Shell: React.FC<ShellProps> = ({ children }) => {
-  const supabase = createClient();
+  // A new browser client on each render retriggers the profile effect below.
+  // Keep one client for this mounted application shell.
+  const supabase = useMemo(() => createClient(), []);
   const [currentUser, setCurrentUser] = useState<TeamMember | null>(null);
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const isConfigured = isSupabaseConfigured();
 
   useEffect(() => {
+    let cancelled = false;
+
     async function loadUserProfile() {
       if (!isConfigured) return;
       const {
@@ -34,20 +38,32 @@ export const Shell: React.FC<ShellProps> = ({ children }) => {
           .single();
 
         if (profile) {
-          setCurrentUser(profile as TeamMember);
+          const fallbackName = session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Kullanıcı';
+          const normalizedProfile = {
+            ...profile,
+            name: typeof profile.name === 'string' && profile.name.trim() ? profile.name : fallbackName,
+            email: typeof profile.email === 'string' ? profile.email : session.user.email || '',
+            role: profile.role || session.user.user_metadata?.role || 'Görüntüleme',
+          } as TeamMember;
+          if (!cancelled) setCurrentUser(normalizedProfile);
         } else {
           // Fallback profile from metadata
-          setCurrentUser({
-            id: session.user.id,
-            name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Kullanıcı',
-            email: session.user.email || '',
-            role: session.user.user_metadata?.role || 'Görüntüleme',
-          });
+          if (!cancelled) {
+            setCurrentUser({
+              id: session.user.id,
+              name: session.user.user_metadata?.name || session.user.email?.split('@')[0] || 'Kullanıcı',
+              email: session.user.email || '',
+              role: session.user.user_metadata?.role || 'Görüntüleme',
+            });
+          }
         }
       }
     }
 
-    loadUserProfile();
+    void loadUserProfile();
+    return () => {
+      cancelled = true;
+    };
   }, [isConfigured, supabase]);
 
   const handleSaveLead = async (newLead: Lead) => {
