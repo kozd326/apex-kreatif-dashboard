@@ -71,3 +71,11 @@ test('Scheduled e-mail queue stays approval-first and has no browser write polic
   assert.match(sql, /no browser INSERT\/UPDATE\/DELETE policies/i);
   assert.doesNotMatch(sql, /for all to authenticated/i);
 });
+
+test('Scheduled e-mail dispatcher requires a protected endpoint and secret', () => {
+  const script = fs.readFileSync(path.join(__dirname, 'dispatch-scheduled-email.cjs'), 'utf8');
+  assert.match(script, /OUTREACH_DISPATCH_URL and OUTREACH_CRON_SECRET are required/i);
+  assert.match(script, /Authorization: `Bearer \$\{secret\}`/);
+  assert.match(script, /method: 'POST'/);
+  assert.match(script, /AbortSignal\.timeout\(60_000\)/);
+});
