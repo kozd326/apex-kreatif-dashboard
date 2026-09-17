@@ -21,11 +21,13 @@ import {
   Megaphone,
   Bot,
   Radar,
+  Map,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
   { label: 'GENEL', items: [
     { name: 'Genel Bakış', href: '/dashboard', icon: LayoutDashboard },
+    { name: 'Başlangıç Rehberi', href: '/guide', icon: Map },
     { name: 'APEX Asistan', href: '/assistant', icon: Bot, badge: 'Yeni' },
   ] },
   { label: 'SATIŞ', items: [

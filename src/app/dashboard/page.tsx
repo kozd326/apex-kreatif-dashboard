@@ -9,7 +9,7 @@ import { AdCampaign, ContentItem, Lead, Payment, Project, Proposal, Task, TeamMe
 import { Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { isOverdue, isToday } from '@/lib/utils';
-import { AlertTriangle, ArrowRight, CheckCircle2, Clapperboard, Megaphone, WalletCards } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Clapperboard, Map, Megaphone, WalletCards } from 'lucide-react';
 
 export default function DashboardPage() {
   const supabase = useMemo(() => createClient(), []);
@@ -110,6 +110,14 @@ export default function DashboardPage() {
         </div>
 
         {loadError&&<div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">{loadError}</div>}
+
+        <section className="flex flex-col gap-4 rounded-2xl border border-apex-blue/30 bg-apex-blue/10 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-apex-blue text-white"><Map className="h-5 w-5" /></span>
+            <div><p className="text-sm font-bold text-white">Sisteme ilk kez mi başlıyorsunuz?</p><p className="mt-1 text-xs leading-5 text-apex-muted">Aday kaydından teklif, proje, teslim ve tahsilata kadar doğru sırayı 6 kısa adımda görün.</p></div>
+          </div>
+          <Link href="/guide" className="inline-flex shrink-0 items-center gap-2 self-start rounded-xl border border-apex-blue/60 bg-apex-dark/55 px-3.5 py-2.5 text-xs font-bold text-white transition hover:border-apex-orange hover:text-apex-orange sm:self-auto">Rehberi aç <ArrowRight className="h-4 w-4" /></Link>
+        </section>
 
         <section><div className="flex items-center justify-between mb-3"><div><h2 className="text-lg font-black text-white">Bugünün öncelikleri</h2><p className="text-[11px] text-apex-muted">İlk bakışta yalnızca müdahale gerektiren kayıtlar.</p></div><span className="text-xs font-bold text-apex-orange">{actionableFollowUps.length+overdueTasks.length+overdueProjects.length+duePayments.length+pendingContent.length+pendingProposalApprovals.length+weakCampaigns.length} aksiyon</span></div><div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           <Action href="/today-calls" icon={AlertTriangle} title="Müşteri takipleri" count={actionableFollowUps.length} detail="geciken veya bugün yapılacak takip" />
