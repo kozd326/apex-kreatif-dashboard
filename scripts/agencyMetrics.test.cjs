@@ -70,6 +70,8 @@ test('Scheduled e-mail queue stays approval-first and has no browser write polic
   assert.match(sql, /enable row level security/i);
   assert.match(sql, /no browser INSERT\/UPDATE\/DELETE policies/i);
   assert.doesNotMatch(sql, /for all to authenticated/i);
+  assert.doesNotMatch(sql, /drop trigger if exists set_outreach_scheduled_emails_updated_at/i);
+  assert.match(sql, /if not exists \(\s*select 1 from pg_trigger/i);
 });
 
 test('Scheduled e-mail dispatcher requires a protected endpoint and secret', () => {

@@ -1,6 +1,7 @@
 -- APEX v17: approval-first scheduled outbound email queue.
 -- Run after v16. This migration creates a queue only; no e-mail is sent by this SQL.
-begin;
+-- Statements are deliberately independent: should a database lock occur, the safe
+-- idempotent statements can be rerun without holding a long transaction open.
 
 create table if not exists public.outreach_scheduled_emails (
   id uuid primary key default gen_random_uuid(),
@@ -37,9 +38,15 @@ create policy outreach_scheduled_emails_read on public.outreach_scheduled_emails
 -- Deliberately no browser INSERT/UPDATE/DELETE policies. Only authenticated
 -- server routes may create, approve, cancel or dispatch a scheduled e-mail.
 
-drop trigger if exists set_outreach_scheduled_emails_updated_at on public.outreach_scheduled_emails;
-create trigger set_outreach_scheduled_emails_updated_at
-  before update on public.outreach_scheduled_emails
-  for each row execute function public.update_updated_at_column();
-
-commit;
+do $$
+begin
+  if not exists (
+    select 1 from pg_trigger
+    where tgname = 'set_outreach_scheduled_emails_updated_at'
+      and tgrelid = 'public.outreach_scheduled_emails'::regclass
+  ) then
+    create trigger set_outreach_scheduled_emails_updated_at
+      before update on public.outreach_scheduled_emails
+      for each row execute function public.update_updated_at_column();
+  end if;
+end $$;
