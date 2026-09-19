@@ -38,8 +38,12 @@ export async function updateSession(request: NextRequest) {
   // Customer shares use an opaque, expiring token verified by a narrowly scoped
   // RPC; they must not inherit the team dashboard session requirement.
   const isClientPortal = request.nextUrl.pathname.startsWith('/portal/');
+  const isPublicDemo =
+    request.nextUrl.pathname === '/scald' ||
+    request.nextUrl.pathname.startsWith('/scald/') ||
+    request.nextUrl.pathname.startsWith('/demos/');
 
-  if (!user && !isLoginPage && !isClientPortal) {
+  if (!user && !isLoginPage && !isClientPortal && !isPublicDemo) {
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);
