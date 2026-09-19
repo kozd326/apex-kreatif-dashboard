@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Clapperboard,
   Clock,
+  Coffee,
   DollarSign,
   FileSpreadsheet,
   FileText,
@@ -203,6 +204,47 @@ export default function DashboardPage() {
         {loadError && (
           <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-xs text-red-200">{loadError}</div>
         )}
+
+        {/* 🔥 PAZARTESİ TOPLANTI KARTI: SCALD COFFEE & PATISSERIE */}
+        <div className="relative overflow-hidden rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-apex-card to-black p-5 shadow-2xl">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#f59e0b]/20 text-[#f59e0b] border border-[#f59e0b]/40">
+                <Coffee className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-[#f59e0b] px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-black">
+                    Pazartesi Toplantısı
+                  </span>
+                  <span className="text-xs font-bold text-amber-300">Kadıköy Yeldeğirmeni</span>
+                </div>
+                <h3 className="mt-1 text-base font-black text-white">
+                  Scald Coffee & Patisserie · 3D Web & Full Prodüksiyon Sunumu
+                </h3>
+                <p className="text-xs text-neutral-400">
+                  Karakolhane Cad. No:30 şubesi için hazırlanan 3D interaktif web demosu ve Sony FX3 kurgu planı hazır.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 shrink-0">
+              <Link
+                href="/scald"
+                target="_blank"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#f59e0b] px-4 py-2.5 text-xs font-black text-black hover:bg-amber-400 transition shadow-md shadow-[#f59e0b]/30"
+              >
+                <Sparkles className="h-4 w-4" /> 3D Canlı Demoyu Aç (/scald)
+              </Link>
+              <Link
+                href="/proposals/new?lead=lead-scald"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-xs font-bold text-white hover:bg-white/10 transition"
+              >
+                Teklif Hazırla →
+              </Link>
+            </div>
+          </div>
+        </div>
 
         {/* 🌟 REVENUE ENGINE: BUGÜN PARA GETİRECEK 5 İŞ ALANI */}
         <section className="space-y-4">
