@@ -46,7 +46,15 @@ export type Dataset = {
   activity: Row[];
   documents: Row[];
   calendar: Row[];
-  integration: { google: boolean; ocr: boolean; calendarConnected: boolean };
+  integration: {
+    google: boolean;
+    ocr: boolean;
+    calendarConnected: boolean;
+    sheetsConnected?: boolean;
+    sheetsUrl?: string;
+    sheetsLastSynced?: string;
+    sheetsError?: string;
+  };
 };
 export function today() {
   return new Intl.DateTimeFormat("en-CA", {

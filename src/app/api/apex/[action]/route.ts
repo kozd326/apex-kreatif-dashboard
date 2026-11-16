@@ -18,6 +18,7 @@ import { today } from "@/lib/apex/domain";
 import { z } from "zod";
 import { createHash, randomUUID } from "node:crypto";
 import { googleAction } from "@/lib/apex/google";
+import { sheetsAction } from "@/lib/apex/sheets";
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
@@ -52,6 +53,8 @@ export async function GET(
       throw new ApiError(403, "Bu alana erişim yetkiniz yok.");
     if (action === "google-connect" || action === "google-callback")
       return googleAction(req, c, action);
+    if (action === "sheets-connect" || action === "sheets-callback")
+      return await sheetsAction(req, c, action);
     if (action === "archive") {
       const { data, error } = await c.admin
         .from("apex_legacy_snapshot")
@@ -91,6 +94,18 @@ export async function GET(
         .from("apex_calendar_jobs")
         .select("key,status,error,synced_at")
         .limit(500);
+      const { data: financeConnection, error: financeError } =
+        c.member.role === "partner"
+          ? await c.admin
+              .from("apex_settings")
+              .select("key,value")
+              .in("key", ["sheets", "sheets_sync"])
+          : { data: [], error: null };
+      check(financeError);
+      const financeSettings = Object.fromEntries(
+        (financeConnection || []).map((r) => [r.key, r.value]),
+      );
+      const spreadsheetId = financeSettings.sheets?.spreadsheet_id;
       return NextResponse.json(
         {
           ...Object.fromEntries(entries),
@@ -102,6 +117,12 @@ export async function GET(
               process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET
             ),
             calendarConnected: !!connection,
+            sheetsConnected: !!financeSettings.sheets?.refresh_token,
+            sheetsUrl: spreadsheetId
+              ? `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+              : undefined,
+            sheetsLastSynced: financeSettings.sheets_sync?.last_synced_at,
+            sheetsError: financeSettings.sheets_sync?.error || undefined,
           },
         },
         { headers: { "Cache-Control": "no-store" } },
@@ -137,6 +158,7 @@ export async function POST(
     const c = await context(req, action !== "review");
     if (action === "upload") return upload(req, c);
     if (action === "google-sync") return googleAction(req, c, action);
+    if (action === "sheets-sync") return await sheetsAction(req, c, action);
     const body = await req.json();
     if (action === "save") {
       const { table, id, version, data } = z

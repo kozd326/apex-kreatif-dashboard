@@ -71,6 +71,16 @@ export function FinanceView() {
         description="Faturalar, gerçekleşen ödemeler ve giderler. Ay sonunda muhasebecinize hazır."
         action={
           <div className="ax-actions">
+            {d.integration.sheetsUrl && (
+              <a
+                className="ax-button secondary"
+                href={d.integration.sheetsUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Ortak tablo
+              </a>
+            )}
             <Button variant="secondary" onClick={() => open("cash")}>
               <Plus size={17} /> Para hareketi
             </Button>
