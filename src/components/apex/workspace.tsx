@@ -54,6 +54,14 @@ import {
 } from "@/lib/apex/domain";
 import { financeSummary, invoiceBalance } from "@/lib/apex/finance.mjs";
 import { notificationItems } from "@/lib/apex/notifications.mjs";
+import {
+  localKey,
+  undoPatch,
+  validateWorkPreferences,
+} from "@/lib/apex/local-state.mjs";
+import { usePreferences, clearDrafts } from "./local-state";
+import { BulkTasks } from "./bulk-tasks";
+import { InstallApp } from "./install-app";
 import { Button, Modal, Empty, Badge, Field, Tabs } from "./ui";
 import dynamic from "next/dynamic";
 import { Editor } from "./editor";
@@ -91,7 +99,16 @@ type Workspace = {
   d: Dataset;
   preview?: boolean;
   refresh: () => Promise<void>;
-  save: (table: string, data: any, row?: Row) => Promise<any>;
+  save: (
+    table: string,
+    data: any,
+    row?: Row,
+    options?: { undo?: boolean },
+  ) => Promise<any>;
+  bulkTasks: (
+    rows: Row[],
+    patch: { assignee_id?: string | null; due_date?: string | null },
+  ) => Promise<void>;
   open: (kind: string, row?: Row, defaults?: any) => void;
   notify: (message: string) => void;
   markRead: (keys: string[]) => Promise<void>;
@@ -123,10 +140,17 @@ export default function WorkspacePage({
       defaults?: any;
     } | null>(null),
     [quickAdd, setQuickAdd] = useState(false);
+  const [undo, setUndo] = useState<{
+    table: string;
+    row: Row;
+    patch: any;
+  } | null>(null);
+  const [undoBusy, setUndoBusy] = useState(false);
   const router = useRouter();
   const mounted = useRef(true);
   const timer = useRef<ReturnType<typeof setTimeout>>();
   const notify = useCallback((s: string) => {
+    setUndo(null);
     setToast(s);
     clearTimeout(timer.current);
     timer.current = setTimeout(() => setToast(""), 7000);
@@ -181,7 +205,30 @@ export default function WorkspacePage({
       db.removeChannel(channel);
     };
   }, [refresh, router]);
-  const save = async (table: string, data: any, row?: Row) => {
+  const save = async (
+    table: string,
+    data: any,
+    row?: Row,
+    options?: { undo?: boolean },
+  ) => {
+    const saved = (result: Row) => {
+      notify(
+        preview
+          ? "Örnek kayıt güncellendi. Gerçek veriler etkilenmedi."
+          : "Kaydedildi.",
+      );
+      const inverse =
+        options?.undo === false ? null : undoPatch(table, data, row);
+      if (inverse) {
+        setUndo({ table, row: result, patch: inverse });
+        clearTimeout(timer.current);
+        timer.current = setTimeout(() => {
+          setToast("");
+          setUndo(null);
+        }, 15000);
+      }
+      return result;
+    };
     if (preview) {
       const key = table === "expected_payments" ? "expected" : table;
       const result = {
@@ -199,8 +246,7 @@ export default function WorkspacePage({
           ? (old as any)[key].map((r: Row) => (r.id === row.id ? result : r))
           : [...(old as any)[key], result],
       }));
-      notify("Örnek kayıt güncellendi. Gerçek veriler etkilenmedi.");
-      return result;
+      return saved(result);
     }
     try {
       const result = await api("save", {
@@ -209,10 +255,50 @@ export default function WorkspacePage({
         ...(row ? { id: row.id, version: row.version } : {}),
       });
       await refresh();
-      notify("Kaydedildi.");
-      return result;
+      return saved(result);
     } catch (e) {
       notify((e as Error).message);
+      await refresh();
+      throw e;
+    }
+  };
+  const bulkTasks = async (
+    rows: Row[],
+    patch: { assignee_id?: string | null; due_date?: string | null },
+  ) => {
+    try {
+      if (preview) {
+        if (
+          rows.some(
+            (row) =>
+              d?.tasks.find((task) => task.id === row.id)?.version !==
+              row.version,
+          )
+        )
+          throw new Error("Liste değişti. Yenileyip işleri tekrar seçin.");
+        const ids = new Set(rows.map((row) => row.id));
+        setD(
+          (old) =>
+            old && {
+              ...old,
+              tasks: old.tasks.map((task) =>
+                ids.has(task.id)
+                  ? { ...task, ...patch, version: task.version + 1 }
+                  : task,
+              ),
+            },
+        );
+      } else {
+        await api("tasks-bulk", {
+          items: rows.map(({ id, version }) => ({ id, version })),
+          patch,
+        });
+        await refresh();
+      }
+      notify(
+        `${rows.length} iş güncellendi.${preview ? " Yalnızca örnek kayıtlar." : ""}`,
+      );
+    } catch (e) {
       await refresh();
       throw e;
     }
@@ -292,6 +378,13 @@ export default function WorkspacePage({
           </Link>
           <button
             onClick={async () => {
+              try {
+                if (d) clearDrafts(d.member.id, !!preview);
+              } catch {
+                notify(
+                  "Cihazdaki taslaklar silinemedi. Çıkıştan sonra tarayıcının site verilerini temizleyebilirsin.",
+                );
+              }
               await createClient().auth.signOut();
               location.href = "/login";
             }}
@@ -380,6 +473,7 @@ export default function WorkspacePage({
                 d,
                 refresh,
                 save,
+                bulkTasks,
                 open,
                 notify,
                 markRead,
@@ -476,6 +570,26 @@ export default function WorkspacePage({
         <div role="status" className="ax-toast">
           <Check size={18} />
           {toast}
+          {undo && (
+            <Button
+              variant="ghost"
+              busy={undoBusy}
+              onClick={async () => {
+                const item = undo;
+                setUndoBusy(true);
+                try {
+                  await save(item.table, item.patch, item.row, { undo: false });
+                  notify("Durum değişikliği geri alındı.");
+                } catch {
+                  /* save reports a conflict without overwriting newer work. */
+                } finally {
+                  setUndoBusy(false);
+                }
+              }}
+            >
+              Geri al
+            </Button>
+          )}
           <button onClick={() => setToast("")} aria-label="Bildirimi kapat">
             ×
           </button>
@@ -883,7 +997,33 @@ function QuickFollowUp({ row }: { row: Row }) {
     </form>
   );
 }
-export function TaskList({ rows }: { rows: Row[] }) {
+export function TaskNeeds({ row }: { row: Row }) {
+  const { open } = useWorkspace();
+  if (row.status === "Tamamlandı") return null;
+  return (
+    <span className="ax-missing-fields">
+      {!row.assignee_id && (
+        <button
+          onClick={() => open("tasks", row, { focusField: "assignee_id" })}
+        >
+          Sorumlu seç
+        </button>
+      )}
+      {!row.due_date && (
+        <button onClick={() => open("tasks", row, { focusField: "due_date" })}>
+          Tarih ekle
+        </button>
+      )}
+    </span>
+  );
+}
+export function TaskList({
+  rows,
+  selection,
+}: {
+  rows: Row[];
+  selection?: { ids: Set<string>; toggle: (id: string) => void };
+}) {
   const { d, open } = useWorkspace();
   return rows.length ? (
     <div className="ax-task-list">
@@ -893,6 +1033,15 @@ export function TaskList({ rows }: { rows: Row[] }) {
         )
         .map((t) => (
           <div className="ax-task-row" key={t.id}>
+            {selection && (
+              <input
+                className="ax-task-selection"
+                type="checkbox"
+                checked={selection.ids.has(t.id)}
+                aria-label={`${t.title} işini seç`}
+                onChange={() => selection.toggle(t.id)}
+              />
+            )}
             <button
               className="ax-task-name"
               onClick={() => open("task-detail", t)}
@@ -912,10 +1061,11 @@ export function TaskList({ rows }: { rows: Row[] }) {
               </small>
             </button>
             <QuickStatus table="tasks" row={t} advance />
+            <TaskNeeds row={t} />
             <span
               className={`ax-task-date ${t.due_date && t.due_date < today() && t.status !== "Tamamlandı" ? "late" : ""}`}
             >
-              {dateLabel(t.due_date)}
+              {t.due_date ? dateLabel(t.due_date) : ""}
             </span>
             <span
               title={nameOf(d.members, t.assignee_id)}
@@ -931,18 +1081,52 @@ export function TaskList({ rows }: { rows: Row[] }) {
   );
 }
 function Work() {
-  const { d, open } = useWorkspace();
-  const [tab, setTab] = useState("İş listesi"),
-    [who, setWho] = useState("mine"),
-    [customer, setCustomer] = useState(""),
-    [mode, setMode] = useState("Liste"),
-    [completed, setCompleted] = useState(false);
+  const { d, open, preview, notify } = useWorkspace();
+  const prefs = usePreferences(
+    localKey(d.member.id, "views:work", preview),
+    validateWorkPreferences,
+  );
+  const { tab, who, mode, completed } = prefs.value;
+  const customer = d.customers.some((c) => c.id === prefs.value.customer)
+    ? prefs.value.customer
+    : "";
+  const setTab = (tab: string) => prefs.update({ tab });
+  const setWho = (who: string) => prefs.update({ who });
+  const setCustomer = (customer: string) => prefs.update({ customer });
+  const setMode = (mode: string) => prefs.update({ mode });
+  const setCompleted = (completed: boolean) => prefs.update({ completed });
+  const [selecting, setSelecting] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
+  useEffect(() => {
+    setSelected(new Set());
+    setSelecting(false);
+  }, [tab, who, customer, completed, mode]);
+  const toggle = (id: string) => {
+    if (!selected.has(id) && selected.size >= 50) {
+      notify("Bir seferde en fazla 50 iş seçebilirsin.");
+      return;
+    }
+    setSelected((old) => {
+      const next = new Set(old);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
   const rows = d.tasks.filter(
     (t) =>
       (who === "all" || t.assignee_id === d.member.id) &&
       (!customer || t.customer_id === customer) &&
       (completed || t.status !== "Tamamlandı"),
   );
+  const visibleKey = rows.map((row) => row.id).join(",");
+  useEffect(() => {
+    const visible = new Set(visibleKey.split(","));
+    setSelected((old) => {
+      const next = new Set([...old].filter((id) => visible.has(id)));
+      return next.size === old.size ? old : next;
+    });
+  }, [visibleKey]);
   return (
     <>
       <PageTitle
@@ -975,6 +1159,7 @@ function Work() {
         value={tab}
         onChange={setTab}
       />
+      {prefs.error && <p className="ax-inline-error">{prefs.error}</p>}
       {tab === "İş listesi" ? (
         <section className="ax-panel">
           <div className="ax-toolbar">
@@ -1022,10 +1207,64 @@ function Work() {
                 <Columns3 size={18} />
               </button>
             </div>
+            <Button
+              variant="ghost"
+              onClick={() => {
+                setSelecting(!selecting);
+                setSelected(new Set());
+              }}
+            >
+              {selecting ? "Seçimi kapat" : "Toplu seç"}
+            </Button>
           </div>
+          {selecting && (
+            <div className="ax-bulk-bar">
+              <label className="ax-check-label">
+                <input
+                  type="checkbox"
+                  aria-label="Görünen işleri seç"
+                  checked={
+                    rows.length > 0 &&
+                    rows.slice(0, 50).every((row) => selected.has(row.id))
+                  }
+                  onChange={(e) =>
+                    setSelected(
+                      new Set(
+                        e.target.checked
+                          ? rows.slice(0, 50).map((row) => row.id)
+                          : [],
+                      ),
+                    )
+                  }
+                />
+                {selected.size} iş seçildi
+                {rows.length > 50 ? " · En fazla 50" : ""}
+              </label>
+              <Button
+                disabled={!selected.size}
+                onClick={() => setBulkOpen(true)}
+              >
+                Seçilenleri güncelle
+              </Button>
+            </div>
+          )}
+          {bulkOpen && (
+            <BulkTasks
+              rows={rows.filter((row) => selected.has(row.id))}
+              onClose={() => setBulkOpen(false)}
+              onDone={() => {
+                setBulkOpen(false);
+                setSelected(new Set());
+                setSelecting(false);
+              }}
+            />
+          )}
           <QuickTask customerId={customer} />
           {mode === "Liste" ? (
-            <TaskList rows={rows} />
+            <TaskList
+              rows={rows}
+              selection={selecting ? { ids: selected, toggle } : undefined}
+            />
           ) : (
             <div className="ax-kanban">
               {TASK_STATES.map((s) => (
@@ -1038,6 +1277,17 @@ function Work() {
                     .filter((t) => t.status === s)
                     .map((t) => (
                       <div key={t.id} className="ax-kanban-card">
+                        {selecting && (
+                          <label className="ax-check-label">
+                            <input
+                              type="checkbox"
+                              aria-label={`${t.title} işini seç`}
+                              checked={selected.has(t.id)}
+                              onChange={() => toggle(t.id)}
+                            />{" "}
+                            Seç
+                          </label>
+                        )}
                         <button
                           className="ax-kanban-open"
                           onClick={() => open("task-detail", t)}
@@ -1047,6 +1297,7 @@ function Work() {
                           <span>{dateLabel(t.due_date)}</span>
                         </button>
                         <QuickStatus table="tasks" row={t} advance />
+                        <TaskNeeds row={t} />
                       </div>
                     ))}
                 </div>
@@ -1065,9 +1316,16 @@ function Work() {
   );
 }
 function Customers() {
-  const { d, open, save } = useWorkspace();
-  const [stage, setStage] = useState(""),
-    [search, setSearch] = useState("");
+  const { d, open, save, preview } = useWorkspace();
+  const prefs = usePreferences(
+    localKey(d.member.id, "views:customers", preview),
+    (value) => ({
+      stage: STAGES.includes(value?.stage) ? (value.stage as string) : "",
+    }),
+  );
+  const stage = prefs.value.stage;
+  const setStage = (stage: string) => prefs.update({ stage });
+  const [search, setSearch] = useState("");
   const rows = d.customers.filter(
     (c) =>
       !c.archived &&
@@ -1100,6 +1358,7 @@ function Customers() {
           </button>
         ))}
       </div>
+      {prefs.error && <p className="ax-inline-error">{prefs.error}</p>}
       <section className="ax-panel">
         <div className="ax-toolbar">
           <h2>
@@ -1408,7 +1667,7 @@ function SearchResults({ query }: { query: string }) {
   );
 }
 function SettingsView() {
-  const { d, notify, refresh, open } = useWorkspace();
+  const { d, notify, refresh, open, preview } = useWorkspace();
   const [busy, setBusy] = useState(false);
   return (
     <>
@@ -1420,6 +1679,13 @@ function SettingsView() {
           <Button
             variant="secondary"
             onClick={async () => {
+              try {
+                clearDrafts(d.member.id, !!preview);
+              } catch {
+                notify(
+                  "Cihazdaki taslaklar silinemedi. Çıkıştan sonra tarayıcının site verilerini temizleyebilirsin.",
+                );
+              }
               const { error } = await createClient().auth.signOut();
               if (error) {
                 notify("Çıkış yapılamadı. Yeniden deneyin.");
@@ -1432,6 +1698,7 @@ function SettingsView() {
           </Button>
         }
       />
+      <InstallApp />
       <div className="ax-two-col">
         <section className="ax-panel">
           <div className="ax-panel-heading">

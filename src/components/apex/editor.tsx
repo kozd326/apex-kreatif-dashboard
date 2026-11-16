@@ -1,5 +1,7 @@
 "use client";
-import { useState, ReactNode } from "react";
+import { useState, useEffect, useRef, ReactNode } from "react";
+import { changedFields, localKey } from "@/lib/apex/local-state.mjs";
+import { useDraft, DraftNotice } from "./local-state";
 import {
   Row,
   Dataset,
@@ -35,7 +37,7 @@ export function Editor({
   defaults?: any;
   onClose: () => void;
 }) {
-  const { d, save, open, notify, refresh } = useWorkspace();
+  const { d, save, open, notify, refresh, preview } = useWorkspace();
   const table =
     kind === "task-detail"
       ? "tasks"
@@ -126,8 +128,44 @@ export function Editor({
     [comment, setComment] = useState(""),
     [commentBusy, setCommentBusy] = useState(false),
     [mentions, setMentions] = useState<string[]>([]);
-  const set = (key: string, value: any) =>
+  const initialValues = useRef(v);
+  const [formDirty, setFormDirty] = useState(false);
+  const [commentDirty, setCommentDirty] = useState(false);
+  const supportsDraft = [
+    "tasks",
+    "customers",
+    "projects",
+    "events",
+    "deliverables",
+  ].includes(table);
+  const formDraft = useDraft(
+    supportsDraft
+      ? localKey(
+          d.member.id,
+          `draft:form:${table}:${row?.id || `new:${defaults?.customer_id || ""}:${defaults?.project_id || ""}`}`,
+          preview,
+        )
+      : null,
+    row?.version,
+  );
+  const noteDraft = useDraft(
+    row && ["tasks", "customers"].includes(table)
+      ? localKey(d.member.id, `draft:note:${table}:${row.id}`, preview)
+      : null,
+  );
+  useEffect(() => {
+    if (formDirty) formDraft.persist(changedFields(initialValues.current, v));
+  }, [v, formDirty]);
+  useEffect(() => {
+    if (commentDirty)
+      noteDraft.persist(
+        comment || mentions.length ? { comment, mentions } : {},
+      );
+  }, [comment, mentions, commentDirty]);
+  const set = (key: string, value: any) => {
+    setFormDirty(true);
     setV((old: any) => ({ ...old, [key]: value }));
+  };
   const field = (
     label: string,
     key: string,
@@ -137,6 +175,7 @@ export function Editor({
     <Field label={label}>
       <input
         type={type}
+        autoFocus={defaults?.focusField === key}
         value={v[key] ?? ""}
         required={required}
         step={type === "number" ? "0.01" : undefined}
@@ -164,6 +203,7 @@ export function Editor({
   ) => (
     <Field label={label}>
       <select
+        autoFocus={defaults?.focusField === key}
         value={v[key] || ""}
         required={!nullable}
         onChange={(e) => {
@@ -373,6 +413,8 @@ export function Editor({
         return;
       }
       await save(table, patch, row);
+      setFormDirty(false);
+      formDraft.clear();
       onClose();
     } catch (e) {
       setErr((e as Error).message);
@@ -383,6 +425,21 @@ export function Editor({
   const commentsPanel = (
     <div className="ax-comments">
       <h3>Notlar ve konuşmalar</h3>
+      <DraftNotice
+        draft={noteDraft}
+        restore={(values) => {
+          setComment(typeof values.comment === "string" ? values.comment : "");
+          setMentions(
+            Array.isArray(values.mentions)
+              ? values.mentions.filter((id: string) =>
+                  memberOptions.some((m) => m.id === id),
+                )
+              : [],
+          );
+          setCommentDirty(true);
+          noteDraft.persist(values);
+        }}
+      />
       {d.comments
         .filter((c) =>
           table === "tasks" ? c.task_id === row?.id : c.customer_id === row?.id,
@@ -413,16 +470,22 @@ export function Editor({
         aria-label="Yorum"
         placeholder="Bir not bırak…"
         value={comment}
-        onChange={(e) => setComment(e.target.value)}
+        disabled={!!noteDraft.pending || commentBusy}
+        onChange={(e) => {
+          setCommentDirty(true);
+          setComment(e.target.value);
+        }}
         maxLength={4000}
       />
       <div className="ax-actions">
         <select
           aria-label="Yorumda kişiyi etiketle"
+          disabled={!!noteDraft.pending || commentBusy}
           value=""
-          onChange={(e) =>
-            setMentions([...new Set([...mentions, e.target.value])])
-          }
+          onChange={(e) => {
+            setCommentDirty(true);
+            setMentions([...new Set([...mentions, e.target.value])]);
+          }}
         >
           <option value="">@ Ekip arkadaşını etiketle</option>
           {memberOptions.map((m) => (
@@ -446,6 +509,8 @@ export function Editor({
               });
               setComment("");
               setMentions([]);
+              setCommentDirty(false);
+              noteDraft.clear();
             } catch {
               /* save displays the error and preserves the note. */
             } finally {
@@ -678,7 +743,18 @@ export function Editor({
       wide={["invoices", "packages"].includes(table)}
     >
       <form onSubmit={submit}>
-        <div className="ax-form-grid">
+        <DraftNotice
+          draft={formDraft}
+          restore={(values) => {
+            setV((old: any) => ({ ...old, ...values }));
+            setFormDirty(true);
+            formDraft.persist(values);
+          }}
+        />
+        <fieldset
+          className="ax-form-grid ax-draft-fields"
+          disabled={!!formDraft.pending || busy}
+        >
           {table === "tasks" && (
             <>
               {field("Yapılacak iş", "title", "text", true)}
@@ -1398,7 +1474,7 @@ export function Editor({
               )}
             </>
           )}
-        </div>
+        </fieldset>
         {err && (
           <p className="ax-notice error" role="alert">
             {err}
@@ -1408,7 +1484,7 @@ export function Editor({
           <Button type="button" variant="secondary" onClick={onClose}>
             Vazgeç
           </Button>
-          <Button type="submit" busy={busy}>
+          <Button type="submit" busy={busy} disabled={!!formDraft.pending}>
             {table === "invite" ? "Davet gönder" : "Kaydet"}
           </Button>
         </div>
