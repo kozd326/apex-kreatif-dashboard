@@ -3,6 +3,8 @@ import { updateSession } from "@/lib/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  if (pathname === "/google-calendar" || pathname === "/privacy/google-calendar")
+    return NextResponse.next();
   if (process.env.NODE_ENV === "development" && pathname === "/preview")
     return NextResponse.next();
   if (
