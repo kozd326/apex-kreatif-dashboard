@@ -1269,6 +1269,7 @@ function SettingsView() {
               {d.integration.calendarConnected ? "Bağlı" : "Kurulum bekliyor"}
             </Badge>
             <h2>Google Takvim</h2>
+            <a href="/privacy/google-calendar" target="_blank" rel="noreferrer">Takvim verilerinin kullanımı</a>
             <p>
               Paneldeki işler, çekimler ve toplantılar ayrı bir Apex takvimine
               aktarılır. Finans bilgileri gönderilmez.
