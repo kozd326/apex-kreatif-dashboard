@@ -116,6 +116,8 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
   );
   await db.exec(`reset role; grant execute on all functions in schema public to anon, authenticated;`);
   await db.exec(fs.readFileSync("supabase/migrations/20261116190226_apex_function_access.sql", "utf8"));
+  await db.exec(fs.readFileSync("supabase/migrations/20261116205810_apex_bulk_tasks.sql", "utf8"));
+  assert.equal((await db.query("select has_function_privilege('anon','apex_bulk_update_tasks(jsonb,jsonb)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('anon','apex_review(uuid,integer,text,text)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('authenticated','apex_audit()','execute') allowed")).rows[0].allowed, false);
   await db.exec(`set role authenticated;`);
@@ -150,6 +152,19 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
       [customer, project],
     )
   ).rows[0].id;
+  const secondTask = (await db.query("insert into apex_tasks(title) values('Bulk second') returning id")).rows[0].id;
+  const bulk = (items, patch) => db.query("select * from apex_bulk_update_tasks($1::jsonb,$2::jsonb)", [JSON.stringify(items), JSON.stringify(patch)]);
+  await assert.rejects(() => bulk([{ id: task, version: 2 }, { id: secondTask, version: 999 }], { due_date: "2026-12-05" }), /CONFLICT/);
+  assert.equal((await db.query("select due_date from apex_tasks where id=$1", [task])).rows[0].due_date, null, "failed batch must not partially save");
+  await assert.rejects(() => bulk([{ id: task, version: 2 }, { id: task, version: 2 }], { due_date: null }), /tekrarlanamaz/);
+  await assert.rejects(() => bulk([{ id: task, version: 2 }], { status: "Tamamlandı" }), /Geçersiz alan/);
+  await assert.rejects(() => bulk([{ id: task, version: 2 }], { assignee_id: "00000000-0000-4000-8000-000000000002" }), /ekip üyesi/);
+  await assert.rejects(() => bulk(Array.from({length:51}, () => ({id: task,version:2})), { due_date: null }), /50/);
+  const updated = await bulk([{ id: task, version: 2 }, { id: secondTask, version: 1 }], { due_date: "2026-12-05", assignee_id: "00000000-0000-4000-8000-000000000001" });
+  assert.equal(updated.rows.length, 2);
+  assert.equal((await db.query("select count(*)::int n from apex_tasks where id in ($1,$2) and due_date='2026-12-05'", [task,secondTask])).rows[0].n, 2);
+  await db.query(`select apex_update_task($1,3,'{"status":"Tamamlandı"}')`, [task]);
+  await assert.rejects(() => db.query(`select apex_update_task($1,3,'{"status":"Yapılıyor"}')`, [task]), /CONFLICT/, "undo cannot replace a newer edit");
   await db.query(
     `insert into apex_packages(customer_id,name,amount,billing_day,start_month,tasks,quotas) values($1,'Monthly',1000,5,'2026-11-01','[{"title":"Shoot","day":5},{"title":"Edit","day":10,"sequential":true}]','[{"kind":"Reels","count":4}]')`,
     [customer],
@@ -191,6 +206,7 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
       0,
       table + " must be hidden",
     );
+  await assert.rejects(() => bulk([{ id: secondTask, version: 2 }], { due_date: null }), /Yetkiniz yok/);
   await assert.rejects(
     () => db.query(`insert into apex_tasks(title) values('Unauthorized')`),
     /row-level security/,

@@ -161,6 +161,35 @@ export async function POST(
     if (action === "google-sync") return googleAction(req, c, action);
     if (action === "sheets-sync") return await sheetsAction(req, c, action);
     const body = await req.json();
+    if (action === "tasks-bulk") {
+      const { items, patch } = z
+        .object({
+          items: z
+            .array(
+              z
+                .object({
+                  id: z.string().uuid(),
+                  version: z.number().int().positive(),
+                })
+                .strict(),
+            )
+            .min(1)
+            .max(50),
+          patch: schemas.tasks
+            .pick({ assignee_id: true, due_date: true })
+            .partial()
+            .refine((value) => Object.keys(value).length > 0),
+        })
+        .strict()
+        .parse(body);
+      await validateRelations(c.db, patch);
+      const { data, error } = await c.db.rpc("apex_bulk_update_tasks", {
+        p_items: items,
+        p_patch: patch,
+      });
+      check(error);
+      return NextResponse.json(data);
+    }
     if (action === "notifications-read") {
       const { keys } = z
         .object({

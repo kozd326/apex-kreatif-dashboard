@@ -2393,3 +2393,142 @@
     font-size: 12px;
   }
 }
+
+.ax-draft-fields,
+.ax-bulk-fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.ax-draft-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 14px;
+  border-radius: 9px;
+  background: #fff5eb;
+  border: 1px solid #f1d4bb;
+  margin-bottom: 18px;
+  font-size: 13px;
+}
+.ax-draft-notice > span {
+  flex: 1 1 240px;
+}
+.ax-draft-notice strong,
+.ax-draft-notice small {
+  display: block;
+}
+.ax-draft-notice small {
+  margin-top: 5px;
+  line-height: 1.5;
+  color: #786350;
+}
+.ax-draft-hint {
+  font-size: 12px;
+  color: #4b7a60;
+  margin: 0 0 14px;
+}
+.ax-toast .ax-button {
+  color: inherit;
+  white-space: nowrap;
+  border: 1px solid currentColor;
+}
+.ax-bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 14px 20px;
+  background: #fff5eb;
+  border-block: 1px solid #f0dfcf;
+}
+.ax-bulk-details {
+  margin: 16px 0;
+  font-size: 13px;
+}
+.ax-bulk-details summary {
+  cursor: pointer;
+  padding: 10px 0;
+}
+.ax-bulk-details ul {
+  max-height: 150px;
+  overflow-y: auto;
+  padding-left: 22px;
+}
+.ax-bulk-details li {
+  padding: 4px 0;
+}
+.ax-bulk-fields {
+  display: grid;
+  gap: 14px;
+}
+.ax-task-selection {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  accent-color: #b84617;
+}
+.ax-missing-fields {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ax-missing-fields:empty {
+  display: none;
+}
+.ax-missing-fields button {
+  color: #98501d;
+  background: #fff3df;
+  border: 1px dashed #d4a56b;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.ax-install-card {
+  padding: 22px;
+  margin-bottom: 24px;
+}
+.ax-install-card h2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  margin-bottom: 12px;
+}
+.ax-install-card p {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #6e6577;
+  margin: 10px 0;
+}
+@media (max-width: 700px) {
+  .ax-task-selection {
+    width: 24px;
+    height: 24px;
+  }
+  .ax-task-row:has(.ax-task-selection) {
+    grid-template-columns: 24px minmax(0, 1fr);
+  }
+  .ax-task-row:has(.ax-task-selection) .ax-task-name {
+    grid-column: 2;
+  }
+  .ax-task-row .ax-missing-fields {
+    grid-column: 1 / -1;
+  }
+  .ax-missing-fields button {
+    min-height: 44px;
+  }
+  .ax-bulk-bar {
+    padding: 12px;
+  }
+  .ax-toast {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .ax-draft-notice .ax-button {
+    flex: 1;
+  }
+}
