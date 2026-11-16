@@ -1,128 +1,132 @@
-'use client';
-
-import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { createClient, isSupabaseConfigured } from '@/lib/supabase/client';
-import { Lock, Mail, ArrowRight, AlertTriangle } from 'lucide-react';
-
-export default function LoginPage() {
-  const router = useRouter();
-  const supabase = createClient();
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const isConfigured = isSupabaseConfigured();
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setErrorMsg(null);
-    setLoading(true);
-
-    if (!isConfigured) {
-      setErrorMsg('Supabase bağlantı bilgileri unconfigured. Lütfen .env.local dosyasını doldurun.');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        setErrorMsg(error.message === 'Invalid login credentials' ? 'Geçersiz e-posta adresi veya şifre.' : error.message);
-      } else if (data.session) {
-        router.push('/dashboard');
-        router.refresh();
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Giriş sırasında bir hata oluştu.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
+"use client";
+import { useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { ArrowRight, Mail } from "lucide-react";
+import "@/components/apex/workspace.css";
+import { Button, Tabs, Field } from "@/components/apex/ui";
+export default function Login() {
+  const [mode, setMode] = useState("Şifre ile giriş"),
+    [email, setEmail] = useState(""),
+    [password, setPassword] = useState(""),
+    [busy, setBusy] = useState(false),
+    [message, setMessage] = useState("");
   return (
-    <div className="min-h-screen bg-apex-dark text-white flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-apex-card border border-apex-border rounded-3xl p-8 space-y-6 shadow-2xl">
-        {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-apex-orange flex items-center justify-center font-black text-white text-xl transform -skew-x-12 mx-auto shadow-lg shadow-apex-orange/30">
-            A
-          </div>
-          <h1 className="text-2xl font-black tracking-widest text-white">APEX KREATİF</h1>
-          <p className="text-xs text-apex-muted">Sales & Project Management CRM Portal</p>
-        </div>
-
-        {/* Supabase Connection Warning */}
-        {!isConfigured && (
-          <div className="bg-amber-950/80 border border-amber-800 rounded-xl p-3.5 flex items-start gap-2.5 text-xs text-amber-300">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
-            <div>
-              <strong className="block font-bold">Supabase Bağlantısı Gerekli</strong>
-              <span>`.env.local` dosyasında NEXT_PUBLIC_SUPABASE_URL ve ANON_KEY değerlerini tanımlayın.</span>
+    <div
+      className="ax-app"
+      style={{ alignItems: "center", justifyContent: "center", padding: 20 }}
+    >
+      <div className="ax-panel" style={{ width: 420, padding: 35 }}>
+        <img
+          src="/logo-apex-transparent.png"
+          alt="Apex Kreatif"
+          style={{ width: 95, borderRadius: 10, marginBottom: 25 }}
+        />
+        <div className="ax-eyebrow">ORTAK ÇALIŞMA ALANI</div>
+        <h1 style={{ fontSize: 27, fontWeight: 600, marginBottom: 8 }}>
+          Kaldığımız yerden.
+        </h1>
+        <p className="ax-muted">İşler, müşteriler ve ekip aynı yerde.</p>
+        <Tabs
+          items={["Şifre ile giriş", "Giriş bağlantısı"]}
+          value={mode}
+          onChange={setMode}
+        />
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            setBusy(true);
+            setMessage("");
+            const db = createClient();
+            try {
+              if (mode === "Giriş bağlantısı") {
+                const { error } = await db.auth.signInWithOtp({
+                  email,
+                  options: {
+                    shouldCreateUser: false,
+                    emailRedirectTo: location.origin + "/auth/finish",
+                  },
+                });
+                if (error) throw error;
+                setMessage(
+                  "Hesabınız kayıtlıysa giriş bağlantısı e-posta adresinize gönderildi. En yeni mesajı açın.",
+                );
+              } else {
+                const { error } = await db.auth.signInWithPassword({
+                  email,
+                  password,
+                });
+                if (error) throw error;
+                location.href = "/dashboard";
+              }
+            } catch {
+              setMessage(
+                "Giriş tamamlanamadı. Bilgilerinizi kontrol edin veya yeni bağlantı isteyin.",
+              );
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <Field label="E-posta">
+            <input
+              required
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </Field>
+          {mode === "Şifre ile giriş" && (
+            <div style={{ marginTop: 15 }}>
+              <Field label="Şifre">
+                <input
+                  required
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </Field>
             </div>
-          </div>
-        )}
-
-        {/* Error Alert */}
-        {errorMsg && (
-          <div className="bg-rose-950/80 border border-rose-800 rounded-xl p-3.5 text-xs text-rose-300 font-semibold">
-            {errorMsg}
-          </div>
-        )}
-
-        {/* Real Login Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-apex-muted mb-1">E-posta Adresi</label>
-            <div className="relative">
-              <Mail className="w-4 h-4 text-apex-muted absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="kaan@apexkreatif.com"
-                className="w-full bg-apex-dark border border-apex-border rounded-xl text-xs text-white pl-9 pr-4 py-3 focus:border-apex-orange focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-apex-muted mb-1">Şifre</label>
-            <div className="relative">
-              <Lock className="w-4 h-4 text-apex-muted absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full bg-apex-dark border border-apex-border rounded-xl text-xs text-white pl-9 pr-4 py-3 focus:border-apex-orange focus:outline-none"
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-apex-orange hover:bg-apex-orange-hover disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-apex-orange/20 flex items-center justify-center gap-2"
-          >
-            <span>{loading ? 'Giriş Yapılıyor...' : 'Giriş Yap'}</span>
-            <ArrowRight className="w-4 h-4" />
-          </button>
+          )}
+          <Button busy={busy} style={{ width: "100%", marginTop: 22 }}>
+            {mode === "Giriş bağlantısı" ? (
+              <Mail size={17} />
+            ) : (
+              <ArrowRight size={17} />
+            )}{" "}
+            {mode === "Giriş bağlantısı" ? "Bağlantı gönder" : "Giriş yap"}
+          </Button>
         </form>
-
-        <div className="pt-4 border-t border-apex-border text-center">
-          <p className="text-[11px] text-apex-muted font-mono">
-            Sadece davetli APEX KREATİF ekip üyeleri erişebilir.
+        {mode === "Şifre ile giriş" && (
+          <button
+            style={{ fontSize: 11, color: "#79759b", marginTop: 17 }}
+            onClick={async () => {
+              if (!email) {
+                setMessage("Önce e-posta adresinizi yazın.");
+                return;
+              }
+              setBusy(true);
+              const { error } = await createClient().auth.resetPasswordForEmail(
+                email,
+                { redirectTo: location.origin + "/auth/reset-password" },
+              );
+              setMessage(
+                error
+                  ? "Bağlantı gönderilemedi. Biraz sonra tekrar deneyin."
+                  : "Şifre yenileme bağlantısı gönderildi. E-postadaki en yeni bağlantıyı kullanın.",
+              );
+              setBusy(false);
+            }}
+          >
+            Şifremi unuttum
+          </button>
+        )}
+        {message && (
+          <p className="ax-notice" role="status">
+            {message}
           </p>
-        </div>
+        )}
       </div>
     </div>
   );
