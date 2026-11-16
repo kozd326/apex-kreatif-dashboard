@@ -12,6 +12,11 @@ import { PageTitle, useWorkspace, api } from "./workspace";
 import { Button, Badge } from "./ui";
 export function CalendarView() {
   const { d, open, notify } = useWorkspace();
+  const [initialView] = useState(() =>
+    window.matchMedia("(max-width: 700px)").matches
+      ? "listWeek"
+      : "dayGridMonth",
+  );
   const [kind, setKind] = useState("Tümü"),
     [who, setWho] = useState(""),
     [busy, setBusy] = useState(false);
@@ -153,11 +158,11 @@ export function CalendarView() {
           ]}
           locale={trLocale}
           timeZone="Europe/Istanbul"
-          initialView="dayGridMonth"
+          initialView={initialView}
           headerToolbar={{
             left: "prev,next today",
             center: "title",
-            right: "dayGridMonth,timeGridWeek,listMonth",
+            right: "dayGridMonth,timeGridWeek,listWeek",
           }}
           height="auto"
           firstDay={1}

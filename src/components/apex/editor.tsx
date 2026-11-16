@@ -22,6 +22,7 @@ import {
   TaskList,
   Projects,
   Deliverables,
+  QuickStatus,
 } from "./workspace";
 export function Editor({
   kind,
@@ -121,8 +122,9 @@ export function Editor({
   }));
   const [busy, setBusy] = useState(false),
     [err, setErr] = useState(""),
-    [detailTab, setDetailTab] = useState("Özet"),
+    [detailTab, setDetailTab] = useState(defaults?.detailTab || "Özet"),
     [comment, setComment] = useState(""),
+    [commentBusy, setCommentBusy] = useState(false),
     [mentions, setMentions] = useState<string[]>([]);
   const set = (key: string, value: any) =>
     setV((old: any) => ({ ...old, [key]: value }));
@@ -432,7 +434,10 @@ export function Editor({
         <Button
           variant="secondary"
           disabled={!comment.trim()}
+          busy={commentBusy}
           onClick={async () => {
+            if (commentBusy) return;
+            setCommentBusy(true);
             try {
               await save("comments", {
                 body: comment,
@@ -441,7 +446,11 @@ export function Editor({
               });
               setComment("");
               setMentions([]);
-            } catch {}
+            } catch {
+              /* save displays the error and preserves the note. */
+            } finally {
+              setCommentBusy(false);
+            }
           }}
         >
           Gönder
@@ -464,7 +473,7 @@ export function Editor({
         <div className="ax-profile-header">
           <span className="ax-avatar large">{initials(current.name)}</span>
           <div>
-            <Badge tone="purple">{current.stage}</Badge>
+            <QuickStatus table="customers" row={current} />
             <p>{current.services.join(" · ")}</p>
           </div>
           <Button

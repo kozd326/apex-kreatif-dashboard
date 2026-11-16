@@ -38,6 +38,7 @@ const datasetTables = {
   runs: "apex_package_runs",
   events: "apex_events",
   activity: "apex_activity",
+  notificationReads: "apex_notification_reads",
   documents: "apex_documents",
 };
 export async function GET(
@@ -160,6 +161,19 @@ export async function POST(
     if (action === "google-sync") return googleAction(req, c, action);
     if (action === "sheets-sync") return await sheetsAction(req, c, action);
     const body = await req.json();
+    if (action === "notifications-read") {
+      const { keys } = z
+        .object({
+          keys: z.array(z.string().min(1).max(200)).min(1).max(100),
+        })
+        .parse(body);
+      const { error } = await c.db.from("apex_notification_reads").upsert(
+        [...new Set(keys)].map((key) => ({ member_id: c.member.id, key })),
+        { onConflict: "member_id,key", ignoreDuplicates: true },
+      );
+      check(error);
+      return NextResponse.json({ ok: true });
+    }
     if (action === "save") {
       const { table, id, version, data } = z
         .object({

@@ -44,6 +44,7 @@ export type Dataset = {
   runs: Row[];
   events: Row[];
   activity: Row[];
+  notificationReads?: { key: string }[];
   documents: Row[];
   calendar: Row[];
   integration: {

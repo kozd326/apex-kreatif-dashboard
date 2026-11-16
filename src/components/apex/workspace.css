@@ -1931,3 +1931,465 @@
     visibility: visible;
   }
 }
+
+/* Daily workflow: visible actions, readable notifications, and touch navigation. */
+.ax-notification-bell {
+  position: relative;
+}
+.ax-unread-count {
+  position: absolute;
+  top: -4px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 12px;
+  background: #d64b16;
+  color: #fff;
+  font-size: 10px;
+  display: grid;
+  place-items: center;
+  border: 2px solid white;
+}
+.ax-add-shortcut {
+  background: #fff1e9;
+  color: #ad3f12;
+}
+.ax-mobile-settings,
+.ax-bottom-nav {
+  display: none;
+}
+.ax-quick-menu {
+  display: grid;
+  gap: 10px;
+}
+.ax-quick-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-align: left;
+  padding: 18px;
+  border: 1px solid #e9e3ed;
+  border-radius: 10px;
+}
+.ax-quick-menu > button:hover {
+  background: #fff5ef;
+}
+.ax-quick-menu span {
+  flex: 1;
+}
+.ax-quick-menu strong,
+.ax-quick-menu small {
+  display: block;
+}
+.ax-quick-menu small {
+  margin-top: 5px;
+  color: #76697e;
+  font-size: 12px;
+}
+.ax-inbox-intro {
+  color: #6d6474;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.ax-inbox-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+.ax-inbox-toolbar .ax-tabs {
+  margin: 0;
+}
+.ax-inbox-item {
+  display: flex;
+  align-items: flex-start;
+  border: 1px solid #e7e0ec;
+  border-radius: 10px;
+  margin: 10px 0;
+  overflow: hidden;
+}
+.ax-inbox-item.unread {
+  background: #fff8f2;
+  border-left: 3px solid #ec672b;
+}
+.ax-inbox-open {
+  flex: 1;
+  min-width: 0;
+  padding: 16px;
+  text-align: left;
+}
+.ax-inbox-open > strong {
+  display: block;
+  margin: 10px 0 5px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.ax-inbox-open p {
+  color: #6d6474;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.ax-inbox-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.ax-inbox-label small {
+  color: #776c80;
+}
+.ax-inbox-item > .ax-icon {
+  margin: 9px 6px 0 0;
+  min-width: 44px;
+  min-height: 44px;
+}
+.ax-status-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.ax-status-controls .ax-button {
+  font-size: 12px;
+  padding: 7px 9px;
+}
+.ax-quick-status .ax-status-select {
+  width: auto;
+  max-width: 185px;
+  padding: 9px 7px;
+  color: #53465f;
+  margin: 0;
+}
+.ax-quick-status {
+  max-width: 280px;
+}
+.ax-inline-error {
+  display: block;
+  width: 100%;
+  color: #aa351f;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+.ax-task-row {
+  flex-wrap: wrap;
+}
+.ax-task-row .ax-task-name {
+  min-width: 160px;
+}
+.ax-follow-up {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.ax-follow-up input {
+  border: 1px solid #e5dfea;
+  border-radius: 6px;
+  padding: 8px;
+  max-width: 160px;
+  background: #fff;
+  font: inherit;
+  color: inherit;
+}
+.ax-customer-actions .ax-button {
+  white-space: nowrap;
+}
+.ax-customer-actions > .ax-icon {
+  display: inline-grid;
+}
+.ax-kanban-open {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin-bottom: 12px;
+}
+.ax-kanban-open strong,
+.ax-kanban-open small,
+.ax-kanban-open span {
+  display: block;
+}
+.ax-kanban-open small,
+.ax-kanban-open span {
+  font-size: 12px;
+  color: #786c82;
+  margin-top: 6px;
+}
+.ax-app button:disabled,
+.ax-portal button:disabled,
+.ax-app select:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+@media (max-width: 950px) {
+  .ax-topbar {
+    height: auto;
+    min-height: 76px;
+    flex-wrap: wrap;
+    padding-block: 12px;
+  }
+  .ax-top-actions {
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+  }
+  .ax-top-actions .ax-search {
+    display: flex;
+    order: 5;
+    flex-basis: 100%;
+    border: 1px solid #e9e3ed;
+    border-radius: 8px;
+    padding-inline: 10px;
+  }
+  .ax-top-actions .ax-search input {
+    width: 100%;
+    min-width: 0;
+  }
+}
+@media (max-width: 700px) {
+  .ax-sidebar {
+    display: none;
+  }
+  .ax-main {
+    padding-bottom: calc(76px + env(safe-area-inset-bottom));
+  }
+  .ax-topbar {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    padding: 10px 14px;
+    gap: 8px;
+  }
+  .ax-top-actions {
+    gap: 4px;
+  }
+  .ax-top-avatar {
+    display: none;
+  }
+  .ax-mobile-settings {
+    display: grid;
+  }
+  .ax-breadcrumb {
+    font-size: 12px;
+    gap: 6px;
+  }
+  .ax-icon {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .ax-bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    border-top: 1px solid #e4dce9;
+    background: #fff;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 20px #23152f08;
+  }
+  .ax-bottom-nav a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    min-height: 54px;
+    border-radius: 10px;
+    font-size: 11px;
+    color: #75677d;
+    text-decoration: none;
+  }
+  .ax-bottom-nav a[aria-current="page"] {
+    background: #fff0e5;
+    color: #a63d10;
+    font-weight: 700;
+  }
+  .ax-content {
+    padding: 20px 12px;
+  }
+  .ax-page-title {
+    flex-wrap: wrap;
+  }
+  .ax-page-title p {
+    max-width: none;
+  }
+  .ax-page-title > .ax-button,
+  .ax-button {
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .ax-app input:not([type="checkbox"]),
+  .ax-app select,
+  .ax-portal input:not([type="checkbox"]),
+  .ax-portal select,
+  .ax-portal textarea {
+    font-size: 16px;
+    min-height: 44px;
+  }
+  .ax-search input {
+    min-width: 0;
+  }
+  .ax-task-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 12px;
+    padding: 16px 12px;
+  }
+  .ax-task-row .ax-task-name {
+    grid-column: 1 / -1;
+    min-width: 0;
+    text-align: left;
+  }
+  .ax-task-name strong {
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .ax-task-name small {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .ax-task-row .ax-quick-status {
+    grid-column: 1 / -1;
+    max-width: none;
+  }
+  .ax-task-row .ax-status-select {
+    margin: 0;
+    width: auto;
+    max-width: 100%;
+  }
+  .ax-status-controls {
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .ax-status-controls .ax-button {
+    min-height: 44px;
+    font-size: 13px;
+  }
+  .ax-task-row .ax-task-date {
+    margin-left: 0;
+    font-size: 12px;
+  }
+  .ax-customer-table {
+    overflow: visible;
+  }
+  .ax-customer-table .ax-table,
+  .ax-customer-table tbody {
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+  .ax-customer-table thead {
+    display: none;
+  }
+  .ax-customer-table tr {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    border-bottom: 1px solid #e9e1ef;
+    padding: 16px 12px;
+    gap: 12px;
+  }
+  .ax-customer-table td {
+    display: block;
+    border: 0;
+    padding: 0;
+    min-width: 0;
+    white-space: normal;
+  }
+  .ax-customer-table td:first-child,
+  .ax-customer-table td:nth-child(2),
+  .ax-customer-table td:nth-child(4),
+  .ax-customer-table td:last-child {
+    grid-column: 1 / -1;
+  }
+  .ax-customer-table td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: #807287;
+    font-size: 11px;
+    margin-bottom: 5px;
+  }
+  .ax-customer-table .ax-customer-name {
+    min-width: 0;
+    width: 100%;
+    text-align: left;
+  }
+  .ax-customer-name strong {
+    overflow-wrap: anywhere;
+  }
+  .ax-customer-table .ax-quick-status {
+    max-width: none;
+  }
+  .ax-customer-table .ax-status-select {
+    width: 100%;
+    max-width: none;
+  }
+  .ax-follow-up input {
+    max-width: 100%;
+  }
+  .ax-customer-actions {
+    display: flex !important;
+    justify-content: space-between;
+  }
+  .ax-pipeline button {
+    min-height: 65px;
+  }
+  .ax-pipeline button span {
+    font-size: 11px;
+  }
+  .ax-kanban {
+    grid-template-columns: repeat(4, minmax(260px, 80vw));
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+  .ax-kanban > div {
+    scroll-snap-align: start;
+  }
+  .ax-modal,
+  .ax-modal.wide,
+  .ax-modal.drawer {
+    width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    inset: 0;
+    transform: none;
+    border-radius: 0;
+  }
+  .ax-modal-body {
+    padding: 16px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+  }
+  .ax-modal > header {
+    padding: 10px 16px;
+  }
+  .ax-form-footer {
+    position: sticky;
+    bottom: -16px;
+    background: #fff;
+    padding: 12px 0 max(12px, env(safe-area-inset-bottom));
+    z-index: 2;
+  }
+  .ax-comments .ax-actions {
+    flex-wrap: wrap;
+  }
+  .ax-comments .ax-actions select {
+    width: 100%;
+  }
+  .ax-toast {
+    bottom: calc(86px + env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+  }
+  .ax-calendar .fc-button {
+    min-height: 44px;
+    font-size: 12px;
+  }
+}
