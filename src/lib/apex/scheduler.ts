@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { monthNow } from "./domain";
 import { syncGoogle } from "./google";
+import { syncSheets } from "./sheets";
 let running = false;
 export async function tick() {
   if (running) return;
@@ -19,10 +20,18 @@ export async function tick() {
         .eq("key", "google")
         .maybeSingle();
       if (data) {
-        const result = await syncGoogle(admin);
-        if (result.failed)
-          console.error("Apex calendar records pending", result.failed);
+        try {
+          const result = await syncGoogle(admin);
+          if (result.failed)
+            console.error("Apex calendar records pending", result.failed);
+        } catch (e) {
+          console.error(
+            "Apex calendar sync failed",
+            e instanceof Error ? e.name : "unknown",
+          );
+        }
       }
+      await syncSheets(admin);
     }
   } catch (e) {
     console.error(

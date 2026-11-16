@@ -1269,7 +1269,9 @@ function SettingsView() {
               {d.integration.calendarConnected ? "Bağlı" : "Kurulum bekliyor"}
             </Badge>
             <h2>Google Takvim</h2>
-            <a href="/privacy/google-calendar" target="_blank" rel="noreferrer">Takvim verilerinin kullanımı</a>
+            <a href="/privacy/google-calendar" target="_blank" rel="noreferrer">
+              Takvim verilerinin kullanımı
+            </a>
             <p>
               Paneldeki işler, çekimler ve toplantılar ayrı bir Apex takvimine
               aktarılır. Finans bilgileri gönderilmez.
@@ -1317,6 +1319,90 @@ function SettingsView() {
               arkadaşlarınızla paylaşabilirsiniz.
             </small>
           </section>
+          {d.member.role === "partner" && (
+            <section className="ax-panel ax-pad">
+              <Badge
+                tone={
+                  d.integration.sheetsError
+                    ? "orange"
+                    : d.integration.sheetsConnected
+                      ? "green"
+                      : "orange"
+                }
+              >
+                {d.integration.sheetsError
+                  ? "Aktarım bekliyor"
+                  : d.integration.sheetsConnected
+                    ? "Bağlı"
+                    : "Kurulum bekliyor"}
+              </Badge>
+              <h2>Ortak finans tablosu</h2>
+              <p>
+                Faturalar, para hareketleri ve aylık özet Google E-Tablolar’a 5
+                dakikada bir aktarılır. Bilgileri panelden düzenleyin; ortak
+                tablo görüntüleme ve Excel indirme içindir.
+              </p>
+              <div className="ax-actions">
+                {d.integration.sheetsUrl && (
+                  <a
+                    className="ax-button secondary"
+                    href={d.integration.sheetsUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Ortak tabloyu aç
+                  </a>
+                )}
+                {d.integration.google && (
+                  <a
+                    className="ax-button secondary"
+                    href="/api/apex/sheets-connect"
+                  >
+                    {d.integration.sheetsConnected
+                      ? "Tablo bağlantısını yenile"
+                      : "Google tabloyu bağla"}
+                  </a>
+                )}
+                {d.integration.sheetsConnected && (
+                  <Button
+                    busy={busy}
+                    onClick={async () => {
+                      setBusy(true);
+                      try {
+                        await api("sheets-sync", {});
+                        notify("Ortak finans tablosu güncellendi.");
+                        await refresh();
+                      } catch (e) {
+                        notify((e as Error).message);
+                        await refresh();
+                      } finally {
+                        setBusy(false);
+                      }
+                    }}
+                  >
+                    Tabloyu şimdi güncelle
+                  </Button>
+                )}
+              </div>
+              {d.integration.sheetsLastSynced && (
+                <p className="ax-muted">
+                  Son aktarım:{" "}
+                  {new Date(d.integration.sheetsLastSynced).toLocaleString(
+                    "tr-TR",
+                    { timeZone: "Europe/Istanbul" },
+                  )}
+                </p>
+              )}
+              {d.integration.sheetsError && (
+                <p className="ax-notice">{d.integration.sheetsError}</p>
+              )}
+              <small>
+                Excel için ortak tabloda Dosya → İndir → Microsoft Excel yolunu
+                kullanın. Paylaşımı tablonun Paylaş düğmesinden
+                yönetebilirsiniz.
+              </small>
+            </section>
+          )}
           <section className="ax-panel ax-pad">
             <Badge tone={d.integration.ocr ? "green" : "orange"}>
               {d.integration.ocr ? "Bağlantı hazır" : "Kurulum bekliyor"}
