@@ -34,7 +34,6 @@ import {
   AlertCircle,
   Download,
   Upload,
-  Menu,
   MoreHorizontal,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -54,6 +53,7 @@ import {
   readyTask,
 } from "@/lib/apex/domain";
 import { financeSummary, invoiceBalance } from "@/lib/apex/finance.mjs";
+import { notificationItems } from "@/lib/apex/notifications.mjs";
 import { Button, Modal, Empty, Badge, Field, Tabs } from "./ui";
 import dynamic from "next/dynamic";
 import { Editor } from "./editor";
@@ -94,6 +94,7 @@ type Workspace = {
   save: (table: string, data: any, row?: Row) => Promise<any>;
   open: (kind: string, row?: Row, defaults?: any) => void;
   notify: (message: string) => void;
+  markRead: (keys: string[]) => Promise<void>;
 };
 const Ctx = createContext<Workspace>(null!);
 export const useWorkspace = () => useContext(Ctx);
@@ -121,7 +122,7 @@ export default function WorkspacePage({
       row?: Row;
       defaults?: any;
     } | null>(null),
-    [mobile, setMobile] = useState(false);
+    [quickAdd, setQuickAdd] = useState(false);
   const router = useRouter();
   const mounted = useRef(true);
   const timer = useRef<ReturnType<typeof setTimeout>>();
@@ -188,6 +189,9 @@ export default function WorkspacePage({
         ...data,
         id: row?.id || crypto.randomUUID(),
         version: (row?.version || 0) + 1,
+        created_at: row?.created_at || new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        created_by: row?.created_by || d?.member.id,
       };
       setD((old) => ({
         ...old!,
@@ -213,6 +217,32 @@ export default function WorkspacePage({
       throw e;
     }
   };
+  const markRead = async (keys: string[]) => {
+    if (!keys.length) return;
+    try {
+      if (!preview) {
+        for (let offset = 0; offset < keys.length; offset += 100)
+          await api("notifications-read", {
+            keys: keys.slice(offset, offset + 100),
+          });
+      }
+      setD(
+        (old) =>
+          old && {
+            ...old,
+            notificationReads: [
+              ...(old.notificationReads || []),
+              ...keys.map((key) => ({ key })),
+            ],
+          },
+      );
+    } catch (e) {
+      notify("Okundu bilgisi kaydedilemedi. " + (e as Error).message);
+      throw e;
+    }
+  };
+  const inbox = d ? notificationItems(d, today()) : [];
+  const unread = inbox.filter((item) => !item.read).length;
   const open = (kind: string, row?: Row, defaults?: any) =>
     setDialog({ kind, row, defaults });
   const selected = nav.find((i) => i[0] === page);
@@ -222,7 +252,7 @@ export default function WorkspacePage({
     ).length || 0;
   return (
     <div className="ax-app">
-      <aside className={`ax-sidebar ${mobile ? "mobile-open" : ""}`}>
+      <aside className="ax-sidebar">
         <Link href={preview ? "/preview" : "/dashboard"} className="ax-brand">
           <img src="/logo-apex-transparent.png" alt="Apex Kreatif" />
           <span>ÇALIŞMA ALANI</span>
@@ -235,7 +265,6 @@ export default function WorkspacePage({
           {nav.map(([key, label, Icon]) => (
             <Link
               key={key}
-              onClick={() => setMobile(false)}
               className={page === key ? "active" : ""}
               href={preview ? "/preview?page=" + key : "/" + key}
             >
@@ -274,13 +303,6 @@ export default function WorkspacePage({
       <div className="ax-main">
         <header className="ax-topbar">
           <div className="ax-breadcrumb">
-            <button
-              className="ax-icon ax-mobile-toggle"
-              aria-label="Menüyü aç"
-              onClick={() => setMobile(!mobile)}
-            >
-              <Menu size={20} />
-            </button>
             <span>Apex</span>
             <ChevronRight size={14} />
             <strong>{selected?.[1] || "Ayarlar"}</strong>
@@ -296,16 +318,36 @@ export default function WorkspacePage({
               />
             </div>
             <button
-              className="ax-icon"
-              aria-label="Bildirimler ve bahsetmeler"
+              className="ax-icon ax-notification-bell"
+              aria-label={`Bildirimler${unread ? `, ${unread} okunmamış` : ""}`}
               onClick={() => setAlerts(true)}
             >
               <Bell size={18} />
+              {unread > 0 && (
+                <span className="ax-unread-count">
+                  {unread > 99 ? "99+" : unread}
+                </span>
+              )}
             </button>
             <button className="ax-icon" aria-label="Yenile" onClick={refresh}>
               <RefreshCw size={17} />
             </button>
-            <span className="ax-avatar">
+            <button
+              className="ax-icon ax-add-shortcut"
+              aria-label="Hızlı ekle"
+              onClick={() => setQuickAdd(true)}
+              disabled={!d}
+            >
+              <Plus size={20} />
+            </button>
+            <Link
+              className="ax-icon ax-mobile-settings"
+              aria-label="Ayarlar"
+              href={preview ? "/preview?page=settings" : "/settings"}
+            >
+              <Settings size={20} />
+            </Link>
+            <span className="ax-avatar ax-top-avatar">
               {initials(d?.member.name || "Apex")}
             </span>
           </div>
@@ -334,9 +376,58 @@ export default function WorkspacePage({
             </div>
           ) : (
             <Ctx.Provider
-              value={{ d, refresh, save, open, notify, preview: !!preview }}
+              value={{
+                d,
+                refresh,
+                save,
+                open,
+                notify,
+                markRead,
+                preview: !!preview,
+              }}
             >
               {alerts && <Notifications onClose={() => setAlerts(false)} />}
+              {quickAdd && (
+                <Modal title="Ne ekleyelim?" onClose={() => setQuickAdd(false)}>
+                  <div className="ax-quick-menu">
+                    {[
+                      [
+                        "tasks",
+                        "İş ekle",
+                        "Sorumlu seç, teslim tarihini belirle.",
+                        CheckSquare,
+                      ],
+                      [
+                        "customers",
+                        "Müşteri ekle",
+                        "Görüşmeyi ve sonraki adımı kaydet.",
+                        Users,
+                      ],
+                      [
+                        "events",
+                        "Plan ekle",
+                        "Çekim veya toplantı planla.",
+                        CalendarDays,
+                      ],
+                    ].map(([kind, title, hint, Icon]: any) => (
+                      <button
+                        key={kind}
+                        onClick={() => {
+                          setQuickAdd(false);
+                          open(kind);
+                        }}
+                      >
+                        <Icon size={22} />
+                        <span>
+                          <strong>{title}</strong>
+                          <small>{hint}</small>
+                        </span>
+                        <ChevronRight size={18} />
+                      </button>
+                    ))}
+                  </div>
+                </Modal>
+              )}
               {query ? (
                 <SearchResults query={query} />
               ) : page === "dashboard" ? (
@@ -369,6 +460,18 @@ export default function WorkspacePage({
           <span>İstanbul · {dateLabel(today())}</span>
         </footer>
       </div>
+      <nav className="ax-bottom-nav" aria-label="Ana bölümler">
+        {nav.map(([key, label, Icon]) => (
+          <Link
+            key={key}
+            aria-current={page === key ? "page" : undefined}
+            href={preview ? "/preview?page=" + key : "/" + key}
+          >
+            <Icon size={21} />
+            <span>{label}</span>
+          </Link>
+        ))}
+      </nav>
       {toast && (
         <div role="status" className="ax-toast">
           <Check size={18} />
@@ -658,8 +761,130 @@ export function QuickTask({
     </form>
   );
 }
+export function QuickStatus({
+  table,
+  row,
+  advance = false,
+}: {
+  table: "tasks" | "customers";
+  row: Row;
+  advance?: boolean;
+}) {
+  const { save, d } = useWorkspace();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const pending = useRef(false);
+  const field = table === "tasks" ? "status" : "stage";
+  const options = table === "tasks" ? TASK_STATES : STAGES;
+  const next = (
+    {
+      Yapılacak: ["Yapılıyor", "Başla"],
+      Yapılıyor: row.reviewer_id
+        ? ["Kontrolde", "Kontrole gönder"]
+        : ["Tamamlandı", "Tamamla"],
+      Kontrolde: ["Tamamlandı", "Tamamla"],
+    } as Record<string, string[]>
+  )[row.status];
+  async function change(value: string) {
+    if (pending.current || value === row[field]) return;
+    pending.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      await save(table, { [field]: value }, row);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="ax-quick-status" aria-busy={busy}>
+      <div className="ax-status-controls">
+        <select
+          className="ax-status-select"
+          aria-label={`${row.title || row.name} durumu`}
+          value={row[field]}
+          disabled={busy}
+          onChange={(e) => change(e.target.value)}
+        >
+          {options.map((status) => (
+            <option key={status}>{status}</option>
+          ))}
+        </select>
+        {advance && next && (
+          <Button
+            variant="ghost"
+            busy={busy}
+            disabled={!readyTask(row, d.tasks)}
+            onClick={() => change(next[0])}
+          >
+            {next[1]}
+            <ArrowRight size={14} />
+          </Button>
+        )}
+      </div>
+      {error && (
+        <small className="ax-inline-error" role="alert">
+          {error}
+        </small>
+      )}
+    </div>
+  );
+}
+function QuickFollowUp({ row }: { row: Row }) {
+  const { save } = useWorkspace();
+  const [value, setValue] = useState(row.next_follow_up || "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  useEffect(() => {
+    setValue(row.next_follow_up || "");
+  }, [row.next_follow_up]);
+  return (
+    <form
+      className="ax-follow-up"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        if (busy) return;
+        setBusy(true);
+        setError("");
+        try {
+          await save("customers", { next_follow_up: value || null }, row);
+        } catch (e) {
+          setError((e as Error).message);
+        } finally {
+          setBusy(false);
+        }
+      }}
+    >
+      <input
+        type="date"
+        aria-label={`${row.name} sonraki dönüş tarihi`}
+        value={value}
+        disabled={busy}
+        onChange={(e) => setValue(e.target.value)}
+      />
+      {value !== (row.next_follow_up || "") && (
+        <Button
+          variant="ghost"
+          busy={busy}
+          type="submit"
+          aria-label="Dönüş tarihini kaydet"
+        >
+          <Check size={17} />
+        </Button>
+      )}
+      {error && (
+        <small className="ax-inline-error" role="alert">
+          {error}
+        </small>
+      )}
+    </form>
+  );
+}
 export function TaskList({ rows }: { rows: Row[] }) {
-  const { d, open, save } = useWorkspace();
+  const { d, open } = useWorkspace();
   return rows.length ? (
     <div className="ax-task-list">
       {[...rows]
@@ -668,26 +893,6 @@ export function TaskList({ rows }: { rows: Row[] }) {
         )
         .map((t) => (
           <div className="ax-task-row" key={t.id}>
-            <button
-              className={`ax-task-check ${t.status === "Tamamlandı" ? "checked" : ""}`}
-              aria-label={
-                t.status === "Tamamlandı"
-                  ? `${t.title} işini yeniden aç`
-                  : `${t.title} işini tamamla`
-              }
-              onClick={() =>
-                save(
-                  "tasks",
-                  {
-                    status:
-                      t.status === "Tamamlandı" ? "Yapılacak" : "Tamamlandı",
-                  },
-                  t,
-                ).catch(() => {})
-              }
-            >
-              {t.status === "Tamamlandı" && <Check size={13} />}
-            </button>
             <button
               className="ax-task-name"
               onClick={() => open("task-detail", t)}
@@ -706,18 +911,7 @@ export function TaskList({ rows }: { rows: Row[] }) {
                       : ""}
               </small>
             </button>
-            <select
-              className="ax-status-select"
-              aria-label={`${t.title} durumu`}
-              value={t.status}
-              onChange={(e) =>
-                save("tasks", { status: e.target.value }, t).catch(() => {})
-              }
-            >
-              {TASK_STATES.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
+            <QuickStatus table="tasks" row={t} advance />
             <span
               className={`ax-task-date ${t.due_date && t.due_date < today() && t.status !== "Tamamlandı" ? "late" : ""}`}
             >
@@ -843,15 +1037,17 @@ function Work() {
                   {rows
                     .filter((t) => t.status === s)
                     .map((t) => (
-                      <button
-                        key={t.id}
-                        className="ax-kanban-card"
-                        onClick={() => open("task-detail", t)}
-                      >
-                        <strong>{t.title}</strong>
-                        <small>{nameOf(d.customers, t.customer_id)}</small>
-                        <span>{dateLabel(t.due_date)}</span>
-                      </button>
+                      <div key={t.id} className="ax-kanban-card">
+                        <button
+                          className="ax-kanban-open"
+                          onClick={() => open("task-detail", t)}
+                        >
+                          <strong>{t.title}</strong>
+                          <small>{nameOf(d.customers, t.customer_id)}</small>
+                          <span>{dateLabel(t.due_date)}</span>
+                        </button>
+                        <QuickStatus table="tasks" row={t} advance />
+                      </div>
                     ))}
                 </div>
               ))}
@@ -919,7 +1115,7 @@ function Customers() {
             />
           </div>
         </div>
-        <div className="ax-table-wrap">
+        <div className="ax-table-wrap ax-customer-table">
           <table className="ax-table">
             <thead>
               <tr>
@@ -949,32 +1145,22 @@ function Customers() {
                     </button>
                   </td>
                   <td>
-                    <select
-                      aria-label={`${c.name} durumu`}
-                      className="ax-status-select"
-                      value={c.stage}
-                      onChange={(e) =>
-                        save("customers", { stage: e.target.value }, c).catch(
-                          () => {},
-                        )
-                      }
-                    >
-                      {STAGES.map((s) => (
-                        <option key={s}>{s}</option>
-                      ))}
-                    </select>
+                    <QuickStatus table="customers" row={c} />
                   </td>
-                  <td>{nameOf(d.members, c.owner_id).split(" ")[0]}</td>
+                  <td data-label="Sorumlu">
+                    {nameOf(d.members, c.owner_id).split(" ")[0]}
+                  </td>
                   <td
+                    data-label="Sonraki dönüş"
                     className={
                       c.next_follow_up && c.next_follow_up < today()
                         ? "late"
                         : ""
                     }
                   >
-                    {dateLabel(c.next_follow_up)}
+                    <QuickFollowUp row={c} />
                   </td>
-                  <td>
+                  <td data-label="Açık iş">
                     {
                       d.tasks.filter(
                         (t) =>
@@ -982,7 +1168,15 @@ function Customers() {
                       ).length
                     }
                   </td>
-                  <td>
+                  <td className="ax-customer-actions">
+                    <Button
+                      variant="ghost"
+                      onClick={() =>
+                        open("customer-detail", c, { detailTab: "Notlar" })
+                      }
+                    >
+                      <MessageSquare size={16} /> Not ekle
+                    </Button>
                     <button
                       className="ax-icon"
                       aria-label={`${c.name} profilini aç`}
@@ -1222,6 +1416,21 @@ function SettingsView() {
         eyebrow="ÇALIŞMA ALANI"
         title="Apex’e göre ayarlar."
         description="Ekip, müşterilerin erişimi ve günlük işinizi kolaylaştıran bağlantılar."
+        action={
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              const { error } = await createClient().auth.signOut();
+              if (error) {
+                notify("Çıkış yapılamadı. Yeniden deneyin.");
+                return;
+              }
+              location.href = "/login";
+            }}
+          >
+            <LogOut size={16} /> Çıkış yap
+          </Button>
+        }
       />
       <div className="ax-two-col">
         <section className="ax-panel">
@@ -1446,58 +1655,98 @@ function SettingsView() {
 }
 
 function Notifications({ onClose }: { onClose: () => void }) {
-  const { d, open } = useWorkspace();
-  const mentions = d.comments
-    .filter((c) => c.mentions?.includes(d.member.id))
-    .sort((a, b) => b.created_at.localeCompare(a.created_at));
-  const due = d.tasks.filter(
-    (t) =>
-      t.assignee_id === d.member.id &&
-      t.due_date &&
-      t.due_date <= today() &&
-      t.status !== "Tamamlandı",
-  );
+  const { d, open, markRead } = useWorkspace();
+  const [filter, setFilter] = useState("Okunmamış");
+  const [busy, setBusy] = useState(false);
+  const items = notificationItems(d, today());
+  const unread = items.filter((item) => !item.read);
+  const visible = filter === "Okunmamış" ? unread : items;
+  async function read(keys: string[]) {
+    setBusy(true);
+    try {
+      await markRead(keys);
+    } catch {
+      /* markRead displays the error; leave the items unread. */
+    } finally {
+      setBusy(false);
+    }
+  }
   return (
-    <Modal title="Beni ilgilendirenler" onClose={onClose} drawer>
-      <h3>Bugün ve geciken işler</h3>
-      {due.map((t) => (
-        <button
-          className="ax-simple-row"
-          key={t.id}
-          onClick={() => {
-            onClose();
-            open("task-detail", t);
-          }}
+    <Modal title="Bildirimler" onClose={onClose} drawer>
+      <p className="ax-inbox-intro">
+        Sana atanan işler, bekleyen kontroller ve önümüzdeki iki günün
+        teslimleri. Panel açıkken otomatik yenilenir.
+      </p>
+      <div className="ax-inbox-toolbar">
+        <Tabs
+          items={["Okunmamış", "Tümü"]}
+          value={filter}
+          onChange={setFilter}
+        />
+        <Button
+          variant="ghost"
+          busy={busy}
+          disabled={!unread.length}
+          onClick={() => read(unread.map((item) => item.key))}
         >
-          <strong>{t.title}</strong>
-          <small>{dateLabel(t.due_date)}</small>
-        </button>
-      ))}
-      {!due.length && <Empty>Bugüne yetişmesi gereken açık iş yok.</Empty>}
-      <h3>Benden bahsedilen notlar</h3>
-      {mentions.map((c) => (
-        <button
-          className="ax-simple-row"
-          key={c.id}
-          onClick={() => {
-            onClose();
-            open(
-              c.task_id ? "task-detail" : "customer-detail",
-              (c.task_id ? d.tasks : d.customers).find(
-                (r) => r.id === (c.task_id || c.customer_id),
-              ),
-            );
-          }}
-        >
-          <span>
-            <strong>{nameOf(d.members, c.created_by)}</strong>
-            <small>{c.body}</small>
-          </span>
-          <small>{dateLabel(c.created_at)}</small>
-        </button>
-      ))}
-      {!mentions.length && (
-        <Empty>Adınızın etiketlendiği notlar burada görünecek.</Empty>
+          Tümünü okundu yap
+        </Button>
+      </div>
+      {visible.length ? (
+        <div className="ax-inbox-list">
+          {visible.map((item) => (
+            <article
+              key={item.key}
+              className={"ax-inbox-item " + (item.read ? "read" : "unread")}
+            >
+              <button
+                className="ax-inbox-open"
+                onClick={() => {
+                  const row = (
+                    item.target === "task-detail" ? d.tasks : d.customers
+                  ).find((r) => r.id === item.targetId);
+                  if (!row) return;
+                  if (!item.read) void read([item.key]);
+                  onClose();
+                  open(
+                    item.target,
+                    row,
+                    item.kind === "mention"
+                      ? { detailTab: "Notlar" }
+                      : undefined,
+                  );
+                }}
+              >
+                <span className="ax-inbox-label">
+                  <Badge tone={item.priority <= 1 ? "orange" : "purple"}>
+                    {item.label}
+                  </Badge>
+                  {item.date && <small>{dateLabel(item.date)}</small>}
+                </span>
+                <strong>{item.title}</strong>
+                <p>{item.detail}</p>
+              </button>
+              {!item.read && (
+                <button
+                  className="ax-icon"
+                  disabled={busy}
+                  aria-label={
+                    item.title + ": " + item.label + " bildirimini okundu yap"
+                  }
+                  onClick={() => read([item.key])}
+                >
+                  <Check size={18} />
+                </button>
+              )}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <Empty>
+          {filter === "Okunmamış"
+            ? "Okunmamış bildirimin yok. Yeni gelişmeler burada görünecek."
+            : "Şu an seni bekleyen bir bildirim yok."}
+        </Empty>
       )}
     </Modal>
   );
