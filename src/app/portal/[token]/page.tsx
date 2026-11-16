@@ -1,4 +1,5 @@
 'use client';
+import {useParams} from 'next/navigation';
 
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, MessageSquare, Send } from 'lucide-react';
@@ -7,7 +8,8 @@ import { createClient } from '@/lib/supabase/client';
 type PortalItem = { id: string; title: string; format: string; hook?: string; caption?: string; asset_url?: string; planned_for?: string; approval_status?: string };
 type Share = { published: { title?: string; client?: string; summary?: string; deliverables?: string[]; milestones?: string[]; links?: { label: string; url: string }[]; content_items?: PortalItem[] }; feedback: { name: string; message: string; kind: string; created_at: string }[] };
 
-export default function ClientPortal({ params }: { params: { token: string } }) {
+export default function ClientPortal() {
+ const params=useParams<{token:string}>();
   const supabase = createClient(); const [share, setShare] = useState<Share | null>(null); const [error, setError] = useState(''); const [name, setName] = useState(''); const [message, setMessage] = useState(''); const [kind, setKind] = useState('Soru'); const [sending, setSending] = useState(false); const [decisionFor, setDecisionFor] = useState<PortalItem | null>(null);
   const load = async () => { const { data, error: readError } = await supabase.rpc('crm_read_share', { p_token: params.token }); if (readError || !data) setError('Bu paylaşım bağlantısı geçersiz, iptal edilmiş veya süresi dolmuş.'); else { setError(''); setShare(data as Share); } };
   useEffect(() => { load(); }, []);

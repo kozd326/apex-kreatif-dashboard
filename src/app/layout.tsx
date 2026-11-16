@@ -2,8 +2,8 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'APEX KREATİF — Growth OS',
-  description: 'APEX için satış, müşteri operasyonu, SEO ve reklam karar merkezi.',
+  title: 'APEX KREATİF — Ortak Çalışma Alanı',
+  description: 'Apex ekibi için işler, müşteriler, takvim ve finans.',
 };
 
 export default function RootLayout({
