@@ -108,7 +108,10 @@ export async function googleAction(
       ).error,
     );
     const res = NextResponse.redirect(
-      new URL("/settings?calendar=connected", req.url),
+      new URL(
+        "/settings?calendar=connected",
+        process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin,
+      ),
     );
     res.cookies.set("apex_google_state", "", { path: "/api/apex", maxAge: 0 });
     return res;
