@@ -114,6 +114,11 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
   await db.exec(
     `insert into apex_members(id,name,email,role) values('00000000-0000-4000-8000-000000000002','Client','client@example.test','client'),('00000000-0000-4000-8000-000000000003','Other','other@example.test','client');set role authenticated;select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false);`,
   );
+  await db.exec(`reset role; grant execute on all functions in schema public to anon, authenticated;`);
+  await db.exec(fs.readFileSync("supabase/migrations/20261116190226_apex_function_access.sql", "utf8"));
+  assert.equal((await db.query("select has_function_privilege('anon','apex_review(uuid,integer,text,text)','execute') allowed")).rows[0].allowed, false);
+  assert.equal((await db.query("select has_function_privilege('authenticated','apex_audit()','execute') allowed")).rows[0].allowed, false);
+  await db.exec(`set role authenticated;`);
   const customer = (
     await db.query(`insert into apex_customers(name) values('A') returning id`)
   ).rows[0].id;
