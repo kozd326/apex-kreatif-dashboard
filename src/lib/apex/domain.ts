@@ -33,6 +33,7 @@ export type Dataset = {
   customers: Row[];
   projects: Row[];
   tasks: Row[];
+  archivedTasks?: Row[];
   comments: Row[];
   deliverables: Row[];
   reviews: Row[];

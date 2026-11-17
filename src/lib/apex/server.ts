@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextRequest, NextResponse } from "next/server";
+import { driveFolder } from "./portal.mjs";
 import { z } from "zod";
 
 export class ApiError extends Error {
@@ -117,6 +118,15 @@ export const schemas = {
       quote_amount: amount.nullable().optional(),
       ad_budget: amount.optional(),
       archived: z.boolean().optional(),
+      portal_note: z.string().max(4000).optional(),
+      portal_folder_url: z
+        .string()
+        .max(2000)
+        .refine(
+          (s) => !s || !!driveFolder(s),
+          "Google Drive klasör bağlantısını girin.",
+        )
+        .optional(),
     })
     .strict(),
   projects: z
@@ -157,6 +167,9 @@ export const schemas = {
         .max(30)
         .optional(),
       predecessor_id: nullableId,
+      shared: z.boolean().optional(),
+      archived: z.boolean().optional(),
+      customer_note: z.string().max(4000).optional(),
     })
     .strict(),
   comments: z
@@ -290,6 +303,7 @@ export const schemas = {
       title,
       kind: z.string().trim().min(1).max(100),
       all_day: z.boolean().optional(),
+      shared: z.boolean().optional(),
       description: str.optional(),
       starts_at: z.string().datetime({ offset: true }),
       ends_at: z.string().datetime({ offset: true }),

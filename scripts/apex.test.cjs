@@ -118,6 +118,7 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
   await db.exec(fs.readFileSync("supabase/migrations/20261116190226_apex_function_access.sql", "utf8"));
   await db.exec(fs.readFileSync("supabase/migrations/20261116205810_apex_bulk_tasks.sql", "utf8"));
   await db.exec(fs.readFileSync("supabase/migrations/20261117114447_flexible_calendar.sql", "utf8"));
+  await db.exec(fs.readFileSync("supabase/migrations/20261117121039_client_workspace.sql", "utf8"));
   assert.equal((await db.query("select has_function_privilege('anon','apex_bulk_update_tasks(jsonb,jsonb)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('anon','apex_review(uuid,integer,text,text)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('authenticated','apex_audit()','execute') allowed")).rows[0].allowed, false);
@@ -226,6 +227,20 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
     /CONFLICT/,
   );
   await db.query(`select apex_review($1,1,'Onaylandı','Looks good')`, [del]);
+  await assert.rejects(() => db.query(`select apex_update_task($1,4,'{"shared":true}')`, [task]), /Yetkiniz yok/);
+  await db.exec('reset role');
+  await db.query('update apex_customers set archived=true where id=$1',[customer]);
+  await db.exec('set role authenticated');
+  await assert.rejects(() => db.query(`select apex_review($1,1,'Yorum','archived')`,[del]),/Yetkiniz yok/);
+  await db.exec('reset role');
+  await db.query('update apex_customers set archived=false where id=$1',[customer]);
+  await db.exec(`set role authenticated;select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false)`);
+  await db.query(`select apex_update_task($1,4,'{"shared":true,"customer_note":"Public progress","archived":true}')`,[task]);
+  const archivedTask=(await db.query('select * from apex_tasks where id=$1',[task])).rows[0];
+  assert.equal(archivedTask.archived,true); assert.equal(archivedTask.shared,true); assert.equal(archivedTask.customer_note,'Public progress');
+  await db.query(`select apex_update_task($1,5,'{"archived":false}')`,[task]);
+  await assert.rejects(()=>db.query(`insert into apex_tasks(title,shared) values('No customer',true)`),/check constraint/);
+  await assert.rejects(()=>db.query(`update apex_events set shared=true where id=$1`,[event.id]),/check constraint/);
   await db.exec(
     `select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000003',false)`,
   );

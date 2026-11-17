@@ -242,6 +242,20 @@ export default function WorkspacePage({
         updated_at: new Date().toISOString(),
         created_by: row?.created_by || d?.member.id,
       };
+      if (key === "tasks") {
+        setD((old) => ({
+          ...old!,
+          tasks: [
+            ...old!.tasks.filter((t) => t.id !== result.id),
+            ...(!result.archived ? [result] : []),
+          ],
+          archivedTasks: [
+            ...(old!.archivedTasks || []).filter((t) => t.id !== result.id),
+            ...(result.archived ? [result] : []),
+          ],
+        }));
+        return saved(result);
+      }
       setD((old) => ({
         ...old!,
         [key]: row
@@ -1655,7 +1669,9 @@ function SearchResults({ query }: { query: string }) {
       />
       <section className="ax-panel">
         {d.customers
-          .filter((c) => c.name.toLocaleLowerCase("tr").includes(q))
+          .filter(
+            (c) => !c.archived && c.name.toLocaleLowerCase("tr").includes(q),
+          )
           .map((c) => (
             <button
               key={c.id}
@@ -1677,7 +1693,7 @@ function SearchResults({ query }: { query: string }) {
   );
 }
 function SettingsView() {
-  const { d, notify, refresh, open, preview } = useWorkspace();
+  const { d, notify, refresh, open, preview, save } = useWorkspace();
   const [busy, setBusy] = useState(false);
   return (
     <>
@@ -1930,7 +1946,54 @@ function SettingsView() {
             </p>
           </section>
           <section className="ax-panel ax-pad">
-            <h2>Eski kayıtlar</h2>
+            <h2>Arşivlenen kayıtlar</h2>
+            <p>
+              Arşivlenen kayıtlar çalışma listelerinde görünmez. Gerekirse
+              buradan geri alabilirsiniz.
+            </p>
+            {[
+              ...d.customers
+                .filter((c) => c.archived)
+                .map((row) => ({
+                  table: "customers",
+                  row,
+                  patch: { archived: false },
+                })),
+              ...d.projects
+                .filter((p) => p.status === "Arşiv")
+                .map((row) => ({
+                  table: "projects",
+                  row,
+                  patch: { status: "Aktif" },
+                })),
+              ...(d.archivedTasks || []).map((row) => ({
+                table: "tasks",
+                row,
+                patch: { archived: false },
+              })),
+            ].map(({ table, row, patch }) => (
+              <div className="ax-simple-row" key={table + row.id}>
+                <span>{row.name || row.title}</span>
+                <Button
+                  variant="secondary"
+                  busy={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    try {
+                      await save(table, patch, row);
+                      notify("Kayıt geri alındı.");
+                    } catch (e) {
+                      notify((e as Error).message);
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Geri al
+                </Button>
+              </div>
+            ))}
+            <h2 style={{ marginTop: 24 }}>Eski kayıtlar</h2>
             <p>
               Araştırma ve otomatik müşteri taraması kapatıldı. Eski veriler
               arşivde korunur.

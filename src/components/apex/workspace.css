@@ -2581,3 +2581,32 @@
     flex-wrap: wrap;
   }
 }
+
+/* A small, readable customer workspace, using the same public projection in preview. */
+.ax-portal-embedded { min-height: 0; background: transparent; padding: 0; }
+.ax-portal-embedded main { padding: 0 !important; width: 100%; }
+.ax-portal-page header { flex-wrap: wrap; }
+.ax-portal-page header p { color: var(--muted, #766c86); font-size: 14px; margin-top: 8px; }
+.ax-portal-services { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+.ax-portal-summary { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin: 20px 0; }
+.ax-portal-summary a { border: 1px solid var(--ax-border); background: #fcf9f6; padding: 20px; border-radius: 16px; display: grid; gap: 8px; text-decoration: none; color: inherit; }
+.ax-portal-summary strong { font-size: 23px; color: var(--ax-purple); }
+.ax-portal-summary small,.ax-portal-summary span { font-size: 13px; }
+.ax-portal-section-heading { display: flex; gap: 12px; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+.ax-delivery-card { border-top: 1px solid #ece7f4; padding: 20px 0; }
+.ax-delivery-card textarea { margin: 14px 0; }
+.ax-drive-preview { width: 100%; aspect-ratio: 16/9; border: 0; background: #f3eff8; border-radius: 12px; margin-top: 16px; }
+.ax-portal-page details { margin-top: 16px; }
+.ax-portal-page summary { cursor: pointer; font-weight: 600; }
+.ax-portal-page .ax-simple-row > span:first-child { flex: 1; min-width: 0; }
+.ax-portal-page .ax-simple-row p { font-size: 14px; margin-top: 8px; }
+.ax-portal-page section { scroll-margin-top: 20px; }
+@media(max-width: 640px) { .ax-portal-summary { grid-template-columns: 1fr; } .ax-portal-page header h1 { font-size: 24px; } .ax-portal-page .ax-simple-row { flex-wrap: wrap; } }
+
+.ax-portal-page header img { background: #171621; padding: 10px; }
+@media(max-width: 640px) {
+  .ax-portal-page .ax-simple-row { display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+  .ax-portal-page .ax-simple-row > span { width: auto; max-width: 100%; }
+  .ax-portal-page .ax-simple-row > span:first-child { width: 100%; }
+}
+.ax-portal-page .ax-simple-row > .ax-badge { flex: 0 0 auto; }

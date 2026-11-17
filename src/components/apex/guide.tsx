@@ -52,6 +52,17 @@ const sections = [
     ],
   },
   {
+    title: "Müşteriye kendi alanını aç",
+    page: "customers",
+    steps: [
+      "Müşteri profilinde Düzenle’ye bas. Müşterinin göreceği karşılama notunu ve hizmetleri gir; ekip içi notlar ayrı kalır.",
+      "Drive’da her müşteriye ayrı bir Teslimler klasörü aç. Klasörü müşterinin Google e-postasıyla Görüntüleyici olarak paylaş, bağlantısını müşteri profiline kaydet. Yeni videolar bu klasörde görünür.",
+      "İş ve takvim kayıtlarında Müşteriye göster’i aç. Müşteriyi seç; iç brief ve ekip notları paylaşılmaz. Çekim gününü etkinlik, kurgu aşamasını iş, videoyu teslim kartı olarak ekle.",
+      "Teslim kartına video bağlantısını ve hedef teslim tarihini yaz. Hazır olunca paylaşımı aç ve Onay bekliyor yap. Müşteri Drive videosunu izleyebilir, o sürümü onaylayabilir veya revizyon isteyebilir. Bağlantı değişince paylaşım kapanır; yeni sürümü kontrol ederek yeniden paylaş.",
+      "Müşteri gibi görüntüle ile ekranı kontrol et, sonra Müşteriyi davet et’e bas. Müşteri yalnız kendisine açılan kayıtları ve paylaşılan satış faturalarını görür. Panel daveti Drive erişimini açmaz; klasör paylaşımını ayrıca yap.",
+    ],
+  },
+  {
     title: "Küçük kolaylıklar",
     page: "settings",
     steps: [
@@ -72,7 +83,7 @@ export function GuideView() {
       />
       <div className="ax-guide-grid">
         {sections.map((section, index) => (
-          <section className="ax-panel ax-pad" key={section.page}>
+          <section className="ax-panel ax-pad" key={section.title}>
             <h2>
               {index + 1}. {section.title}
             </h2>
