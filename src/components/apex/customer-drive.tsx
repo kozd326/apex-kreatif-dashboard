@@ -12,7 +12,7 @@ export function CustomerDrive({ customer }: { customer: Row }) {
     (r) => r.customer_id === customer.id,
   );
   const ready = folder?.status === "ready" && !folder.error;
-  const pending = !ready || shares.some((s) => s.status !== "shared");
+  const pending = !ready || shares.some((s) => !["shared","revoked"].includes(s.status));
   return (
     <section className="ax-panel ax-pad" style={{ marginBottom: 20 }}>
       <div className="ax-actions">
@@ -41,7 +41,7 @@ export function CustomerDrive({ customer }: { customer: Row }) {
             Teslimler klasörünü aç ↗
           </a>
         )}
-        {pending && !customer.archived && (
+        {pending && (!customer.archived || shares.some(s=>s.status==="revoking")) && (
           <Button
             variant="secondary"
             busy={busy}
@@ -73,15 +73,6 @@ export function CustomerDrive({ customer }: { customer: Row }) {
           {folder.error}
         </p>
       )}
-      {shares.map((s) => (
-        <div className="ax-note" key={s.id}>
-          <strong>{s.email}</strong> ·{" "}
-          {s.status === "shared"
-            ? "Drive erişimi açık"
-            : "Drive erişimi bekliyor"}
-          {s.error && <p>{s.error}</p>}
-        </div>
-      ))}
       {pending && (
         <p className="ax-muted">
           Geçici bağlantı sorunları 5 dakikada bir yeniden denenir. Erişimi

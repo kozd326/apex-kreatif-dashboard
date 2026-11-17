@@ -174,7 +174,7 @@ export const schemas = {
   deliverables: z
     .object({
       customer_id: id,
-      project_id: id,
+      project_id: nullableId,
       title,
       kind: title,
       url: url.optional(),
@@ -189,6 +189,7 @@ export const schemas = {
         .optional(),
       shared: z.boolean().optional(),
       due_date: optionalDate,
+      out_of_scope: z.boolean().optional(),
     })
     .strict(),
   entities: z
@@ -289,6 +290,7 @@ export const schemas = {
     .strict(),
   events: z
     .object({
+      out_of_scope: z.boolean().optional(),
       customer_id: nullableId,
       project_id: nullableId,
       title,
@@ -343,14 +345,17 @@ export async function allRows(db: any, table: string, columns = "*") {
       .from(table)
       .select(columns)
       .order(
-        table === "apex_package_runs"
-          ? "package_id"
-          : ["apex_settings", "apex_calendar_jobs"].includes(table)
-            ? "key"
-            : "id",
+        table === "apex_client_access"
+          ? "user_id"
+          : table === "apex_package_runs"
+            ? "package_id"
+            : ["apex_settings", "apex_calendar_jobs"].includes(table)
+              ? "key"
+              : "id",
       )
       .range(offset, offset + 499);
     if (table === "apex_package_runs") query = query.order("month");
+    if (table === "apex_client_access") query = query.order("customer_id");
     const { data, error } = await query;
     check(error);
     rows.push(...(data || []));

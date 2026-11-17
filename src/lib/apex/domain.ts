@@ -36,6 +36,11 @@ export type Dataset = {
   archivedTasks?: Row[];
   driveFolders?: Row[];
   driveShares?: Row[];
+  requests?: Row[];
+  requestFiles?: Row[];
+  scopes?: Row[];
+  uploads?: Row[];
+  clientAccess?: {user_id:string;customer_id:string;enabled:boolean}[];
   comments: Row[];
   deliverables: Row[];
   reviews: Row[];

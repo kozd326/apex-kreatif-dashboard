@@ -66,6 +66,7 @@ import { GuideView } from "./guide";
 import { localDateTime } from "@/lib/apex/calendar.mjs";
 import { Button, Modal, Empty, Badge, Field, Tabs } from "./ui";
 import dynamic from "next/dynamic";
+import { CompletionCheck } from "./completion-check";
 import { Editor } from "./editor";
 const CalendarView = dynamic(
   () => import("./calendar").then((m) => m.CalendarView),
@@ -912,6 +913,7 @@ export function QuickStatus({
 }) {
   const { save, d } = useWorkspace();
   const [busy, setBusy] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
   const field = table === "tasks" ? "status" : "stage";
@@ -927,6 +929,10 @@ export function QuickStatus({
   )[row.status];
   async function change(value: string) {
     if (pending.current || value === row[field]) return;
+    if (table === "tasks" && value === "Tamamlandı") {
+      setCompleting(true);
+      return;
+    }
     pending.current = true;
     setBusy(true);
     setError("");
@@ -941,6 +947,9 @@ export function QuickStatus({
   }
   return (
     <div className="ax-quick-status" aria-busy={busy}>
+      {completing && (
+        <CompletionCheck task={row} onClose={() => setCompleting(false)} />
+      )}
       <div className="ax-status-controls">
         <select
           className="ax-status-select"
