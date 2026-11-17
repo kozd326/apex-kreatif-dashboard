@@ -138,6 +138,7 @@ export function CustomerScope({ customerId }: { customerId: string }) {
                   }
                 />
                 <Button
+                  type="button"
                   variant="ghost"
                   onClick={() =>
                     setEdit({
@@ -153,6 +154,7 @@ export function CustomerScope({ customerId }: { customerId: string }) {
               </div>
             ))}
             <Button
+              type="button"
               variant="ghost"
               disabled={edit.quotas.length >= CONTENT_KINDS.length}
               onClick={() =>
@@ -185,7 +187,11 @@ export function CustomerScope({ customerId }: { customerId: string }) {
               <Button type="submit" busy={busy}>
                 Kaydet
               </Button>
-              <Button variant="ghost" onClick={() => setEdit(null)}>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setEdit(null)}
+              >
                 Vazgeç
               </Button>
             </div>

@@ -376,6 +376,7 @@ function RequestPlan({ request: r, members, preview, refresh, onTask }: any) {
             Göreve dönüştür
           </Button>
           <Button
+            type="button"
             variant="ghost"
             disabled={!reply.trim()}
             onClick={() => submit(true)}
