@@ -1767,8 +1767,10 @@ function SettingsView() {
             </Button>
           </div>
           <p className="ax-muted ax-pad">
-            Müşteriler yalnızca kendileriyle paylaşılan teslimleri, proje
-            tarihlerini ve kendi faturalarını görür.
+            Müşteriler kendi hizmetlerini, müşteri notunu ve teslim klasörünü;
+            ayrıca paylaştığınız işleri, projeleri, takvim kayıtlarını,
+            teslimleri ve satış faturalarını görür. Müşteri profilindeki
+            “Müşteri gibi görüntüle” ile davet öncesi kontrol edebilirsiniz.
           </p>
           {d.members
             .filter((m) => m.role === "client")
