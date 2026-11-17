@@ -100,6 +100,17 @@ export function notificationItems(data, day) {
       priority: 3,
     });
   }
+  for(const request of data.requests||[]) {
+    const customer=data.customers?.find(c=>c.id===request.customer_id&&!c.archived);
+    if(!customer||request.status!=='Yeni'||(customer.owner_id&&customer.owner_id!==member))continue;
+    add({key:'request:'+request.id,kind:'request',label:'Yeni müşteri talebi',title:request.title,detail:customer.name,date:request.created_at,target:'customer-detail',targetId:customer.id,priority:2});
+  }
+  for(const review of data.reviews||[]) {
+    const delivery=data.deliverables?.find(d=>d.id===review.deliverable_id);
+    const customer=data.customers?.find(c=>c.id===delivery?.customer_id&&!c.archived);
+    if(!delivery||!customer||review.decision!=='Revizyon istendi'||review.resolved||review.revision!==delivery.revision||(customer.owner_id&&customer.owner_id!==member))continue;
+    add({key:'revision:'+review.id,kind:'revision',label:'Müşteri düzeltme bekliyor',title:delivery.title,detail:review.comment,date:review.created_at,target:'customer-detail',targetId:customer.id,priority:2});
+  }
   return items.sort(
     (a, b) =>
       Number(a.read) - Number(b.read) ||

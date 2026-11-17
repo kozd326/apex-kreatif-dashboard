@@ -125,6 +125,34 @@ export function previewData(): Dataset {
           ? "İlk kurgu hazırlanıyor; hazır olduğunda teslim kartından izleyebilirsiniz."
           : "Çekimde kullanılacak alanları birlikte netleştireceğiz.",
     })),
+    requests: [
+      {
+        id: "request-example",
+        customer_id: "studio",
+        title: "Yeni kampanya için kısa video",
+        description:
+          "Hafta sonu kampanyası için 15 saniyelik bir duyuru hazırlayabilir miyiz?",
+        reference_url: "",
+        desired_date: today(),
+        status: "Yeni",
+        created_at: new Date().toISOString(),
+        version: 1,
+      },
+    ],
+    scopes: [
+      {
+        id: "scope-example",
+        customer_id: "studio",
+        month: monthNow() + "-01",
+        quotas: [
+          { kind: "Reels", count: 4 },
+          { kind: "Gönderi", count: 8 },
+          { kind: "Çekim", count: 1 },
+        ],
+        note: "Birlikte planladığımız aylık üretim.",
+        version: 1,
+      },
+    ],
     comments: [],
     deliverables: [
       {
@@ -140,7 +168,18 @@ export function previewData(): Dataset {
         version: 1,
       },
     ],
-    reviews: [],
+    reviews: [
+      {
+        id: "review-example",
+        deliverable_id: "reel",
+        revision: 1,
+        decision: "Yorum",
+        comment: "Buradaki başlık biraz daha uzun görünsün.",
+        seconds: 18,
+        resolved: false,
+        created_at: new Date().toISOString(),
+      },
+    ],
     entities: [{ id: "entity", name: "Örnek işletme" }],
     invoices: [
       {

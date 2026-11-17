@@ -137,6 +137,7 @@ export function portalProjection(data, customerIds) {
           "decision",
           "comment",
           "created_at",
+          "seconds", "resolved", "resolved_at",
         ]),
       ),
   };

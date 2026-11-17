@@ -1,4 +1,10 @@
 import { queueFolder, syncCustomerDrive, driveMessage } from "@/lib/apex/drive";
+import {
+  customerAction,
+  requestFile,
+  requestUpload,
+} from "@/lib/apex/customer-actions";
+import { startUpload, chunkUpload } from "@/lib/apex/delivery-upload";
 import { portalData } from "@/lib/apex/portal-server";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -40,6 +46,10 @@ const datasetTables = {
   documents: "apex_documents",
   driveFolders: "apex_drive_folders",
   driveShares: "apex_drive_shares",
+  requests: "apex_requests",
+  requestFiles: "apex_request_files",
+  scopes: "apex_scopes",
+  clientAccess: "apex_client_access",
 };
 export async function GET(
   req: NextRequest,
@@ -49,6 +59,12 @@ export async function GET(
     const c = await context(req, false);
     const { action } = await params;
     if (action === "me") return NextResponse.json(c.member);
+    if (action === "request-file")
+      return await requestFile(
+        c,
+        z.string().uuid().parse(req.nextUrl.searchParams.get("id")),
+        req.nextUrl.searchParams.get("download") === "1",
+      );
     if (action === "portal")
       return NextResponse.json(await portalData(c), {
         headers: { "Cache-Control": "no-store" },
@@ -106,6 +122,11 @@ export async function GET(
         ]),
       );
       const dataset = Object.fromEntries(entries);
+      dataset.uploads = await allRows(
+        c.admin,
+        "apex_uploads",
+        "id,customer_id,created_by,name,mime,size,uploaded,status,file_id,created_at",
+      );
       const archivedTasks = dataset.tasks.filter((t: any) => t.archived);
       dataset.tasks = dataset.tasks.filter((t: any) => !t.archived);
       const { data: connection } = await c.admin
@@ -179,11 +200,29 @@ export async function POST(
 ) {
   try {
     const { action } = await params;
-    const c = await context(req, action !== "review");
+    const c = await context(
+      req,
+      !["review", "request-create", "request-upload"].includes(action),
+    );
+    if (action === "request-upload") return await requestUpload(req, c);
+    if (action === "drive-upload-chunk") return await chunkUpload(req, c);
     if (action === "upload") return upload(req, c);
     if (action === "google-sync") return googleAction(req, c, action);
     if (action === "sheets-sync") return await sheetsAction(req, c, action);
     const body = await req.json();
+    if (action === "drive-upload-start")
+      return NextResponse.json(await startUpload(c, body));
+    if (
+      [
+        "request-create",
+        "request-plan",
+        "request-close",
+        "review-resolve",
+        "scope-save",
+        "customer-access-close",
+      ].includes(action)
+    )
+      return await customerAction(req, c, action, body);
     if (action === "tasks-bulk") {
       const { items, patch } = z
         .object({
@@ -439,11 +478,20 @@ export async function POST(
         .single();
       check(error);
       if (!customer) throw new ApiError(404, "Müşteri bulunamadı.");
-      if (customer.archived)
-        throw new ApiError(
-          400,
-          "Arşivlenen müşteri için Drive işlemi yapılamaz.",
-        );
+      if (customer.archived) {
+        const { data, error } = await c.admin
+          .from("apex_drive_shares")
+          .select("id")
+          .eq("customer_id", id)
+          .eq("status", "revoking")
+          .limit(1);
+        check(error);
+        if (!data?.length)
+          throw new ApiError(
+            400,
+            "Arşivlenen müşteri için Drive işlemi yapılamaz.",
+          );
+      }
       return NextResponse.json(await syncCustomerDrive(c.admin, id));
     }
     if (action === "generate-month") {
@@ -466,13 +514,17 @@ export async function POST(
           revision: z.number().int(),
           decision: z.enum(["Onaylandı", "Revizyon istendi", "Yorum"]),
           comment: z.string().max(4000),
+          seconds: z.number().int().min(0).max(86400).nullable().optional(),
+          review_id: z.string().uuid().optional(),
         })
         .parse(body);
-      const { data, error } = await c.db.rpc("apex_review", {
+      const { data, error } = await c.db.rpc("apex_review_timed", {
         p_id: input.id,
         p_revision: input.revision,
         p_decision: input.decision,
         p_comment: input.comment,
+        p_seconds: input.seconds ?? null,
+        p_review_id: input.review_id || randomUUID(),
       });
       check(error);
       return NextResponse.json(data);
@@ -534,7 +586,7 @@ export async function POST(
       }
       const { error } = await c.admin
         .from("apex_client_access")
-        .upsert({ user_id: userId, customer_id });
+        .upsert({ user_id: userId, customer_id, enabled: true });
       check(error);
       let driveWarning = "";
       try {

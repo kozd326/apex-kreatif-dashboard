@@ -1,5 +1,14 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { CustomerRequests } from "./customer-requests";
+import { ScopeSummary } from "./customer-scope";
+import { ReviewNotes } from "./review-notes";
+import {
+  nextStep,
+  scopeSummary,
+  parseTimecode,
+} from "@/lib/apex/customer-workflow.mjs";
+import { monthNow } from "@/lib/apex/domain";
 import { api } from "./workspace";
 import { Button, Badge, Empty } from "./ui";
 import { money, dateLabel, Row, Dataset } from "@/lib/apex/domain";
@@ -45,6 +54,8 @@ export function ClientPortal({
   const [comments, setComments] = useState<Record<string, string>>({}),
     [busy, setBusy] = useState(""),
     [playing, setPlaying] = useState("");
+  const [seconds, setSeconds] = useState<Record<string, string>>({});
+  const reviewIds = useRef(new Map<string, string>());
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
@@ -53,6 +64,16 @@ export function ClientPortal({
           ? {
               member: { name: "Müşteri" },
               ...portalProjection(sampleData, [customerId]),
+              requests: (sampleData.requests || []).filter(
+                (r) => r.customer_id === customerId,
+              ),
+              requestFiles: sampleData.requestFiles || [],
+              scopeSummaries: [
+                {
+                  customer_id: customerId,
+                  ...scopeSummary(sampleData, customerId, monthNow()),
+                },
+              ],
             }
           : await api(
               customerId
@@ -87,13 +108,26 @@ export function ClientPortal({
     }
     setBusy(t.id);
     try {
+      const timed = parseTimecode(seconds[t.id] || "");
+      const payloadKey = JSON.stringify([
+        t.id,
+        t.revision,
+        decision,
+        comments[t.id] || "",
+        timed,
+      ]);
+      if (!reviewIds.current.has(payloadKey))
+        reviewIds.current.set(payloadKey, crypto.randomUUID());
       await api("review", {
+        seconds: timed,
+        review_id: reviewIds.current.get(payloadKey),
         id: t.id,
         revision: t.revision,
         decision,
         comment: comments[t.id] || "",
       });
       setComments((old) => ({ ...old, [t.id]: "" }));
+      setSeconds((old) => ({ ...old, [t.id]: "" }));
       await refresh();
     } catch (e) {
       setError((e as Error).message);
@@ -101,6 +135,8 @@ export function ClientPortal({
       setBusy("");
     }
   };
+  const step = selected && d ? nextStep(d, selected) : null;
+  const scope = d?.scopeSummaries?.find((s: any) => s.customer_id === selected);
   const customer = d?.customers.find((c: Row) => c.id === selected);
   const rows = (key: string): Row[] =>
     (d?.[key] || []).filter((r: Row) => r.customer_id === selected);
@@ -216,6 +252,19 @@ export function ClientPortal({
                 {customer.portal_note}
               </p>
             )}
+            {step && (
+              <section className="ax-next-step">
+                <small>SIRADAKİ ADIM</small>
+                <h2>{step.title}</h2>
+                <p>
+                  {step.text}
+                  {"date" in step && step.date
+                    ? ` · ${dateLabel(step.date)}`
+                    : ""}
+                </p>
+                <a href={step.href}>Ayrıntıya git →</a>
+              </section>
+            )}
             <div className="ax-portal-summary">
               <a href="#client-work">
                 <small>Devam eden işler</small>
@@ -245,6 +294,28 @@ export function ClientPortal({
                 </span>
               </a>
             </div>
+            <section className="ax-panel">
+              <CustomerRequests
+                key={selected}
+                customerId={selected}
+                data={d}
+                refresh={refresh}
+                preview={preview}
+              />
+            </section>
+            {scope?.items.length > 0 && (
+              <section className="ax-panel">
+                <details>
+                  <summary>
+                    <strong>Bu ayki anlaşmamız</strong> ·{" "}
+                    {scope.items
+                      .map((q: any) => `${q.total} ${q.kind}`)
+                      .join(" · ")}
+                  </summary>
+                  <ScopeSummary summary={scope} />
+                </details>
+              </section>
+            )}
             <section className="ax-panel" id="client-work">
               <h2>Şu an ne yapılıyor?</h2>
               {tasks.map((t) => (
@@ -383,6 +454,22 @@ export function ClientPortal({
                       </p>
                     </>
                   )}
+                  <label>
+                    Videodaki süre · isteğe bağlı
+                    <input
+                      aria-label={`${t.title} için video süresi`}
+                      placeholder="00:18"
+                      maxLength={9}
+                      value={seconds[t.id] || ""}
+                      disabled={preview || busy === t.id}
+                      onChange={(e) =>
+                        setSeconds((old) => ({
+                          ...old,
+                          [t.id]: e.target.value,
+                        }))
+                      }
+                    />
+                  </label>
                   <textarea
                     aria-label={`${t.title} için not`}
                     placeholder={
@@ -428,19 +515,12 @@ export function ClientPortal({
                       Not gönder
                     </Button>
                   </div>
-                  {(d.reviews || [])
-                    .filter((r: Row) => r.deliverable_id === t.id)
-                    .sort((a: Row, b: Row) =>
-                      a.created_at.localeCompare(b.created_at),
-                    )
-                    .map((r: Row) => (
-                      <p className="ax-note" key={r.id}>
-                        <Badge>
-                          {r.decision} · v{r.revision}
-                        </Badge>{" "}
-                        {r.comment}
-                      </p>
-                    ))}
+                  <ReviewNotes
+                    delivery={t}
+                    reviews={d.reviews || []}
+                    preview={preview}
+                    refresh={refresh}
+                  />
                 </article>
               ))}
               {!deliveries.length && (

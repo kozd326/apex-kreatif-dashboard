@@ -1,4 +1,10 @@
 "use client";
+import { StaffRequests } from "./customer-requests";
+import { CustomerScope } from "./customer-scope";
+import { CustomerAccess } from "./customer-access";
+import { DeliveryUpload } from "./delivery-upload";
+import { ReviewNotes } from "./review-notes";
+import { completionItems } from "@/lib/apex/customer-workflow.mjs";
 import { CustomerDrive } from "./customer-drive";
 import { ClientPortal } from "./client-portal";
 import { useState, useEffect, useRef, ReactNode } from "react";
@@ -171,7 +177,13 @@ export function Editor({
   }, [comment, mentions, commentDirty]);
   const set = (key: string, value: any) => {
     setFormDirty(true);
-    setV((old: any) => ({ ...old, [key]: value }));
+    setV((old: any) => ({
+      ...old,
+      [key]: value,
+      ...(table === "tasks" && key === "status" && value === "Tamamlandı"
+        ? { checklist: completionItems(old) }
+        : {}),
+    }));
   };
   const field = (
     label: string,
@@ -356,6 +368,7 @@ export function Editor({
           "all_day",
           "shared",
           "description",
+          "out_of_scope",
         ],
         deliverables: [
           "customer_id",
@@ -366,6 +379,7 @@ export function Editor({
           "status",
           "shared",
           "due_date",
+          "out_of_scope",
         ],
         entities: ["name", "tax_number", "notes"],
         invoices: [
@@ -606,7 +620,7 @@ export function Editor({
             </Button>
           )}
         </div>
-        <CustomerDrive customer={current} />
+        <CustomerAccess customerId={current.id} />
         <Tabs
           items={["Özet", "İşler", "Projeler", "Teslimler", "Finans", "Notlar"]}
           value={detailTab}
@@ -614,6 +628,8 @@ export function Editor({
         />
         {detailTab === "Özet" ? (
           <>
+            <StaffRequests customerId={current.id} />
+            <CustomerScope customerId={current.id} />
             <div className="ax-profile-grid">
               <div>
                 <small>İlgili kişi</small>
@@ -684,10 +700,14 @@ export function Editor({
             <Projects customerId={current.id} />
           </>
         ) : detailTab === "Teslimler" ? (
-          <Deliverables
-            rows={d.deliverables.filter((t) => t.customer_id === current.id)}
-            customerId={current.id}
-          />
+          <>
+            <CustomerDrive customer={current} />
+            {!current.archived && <DeliveryUpload customerId={current.id} />}
+            <Deliverables
+              rows={d.deliverables.filter((t) => t.customer_id === current.id)}
+              customerId={current.id}
+            />
+          </>
         ) : detailTab === "Finans" ? (
           <>
             <div className="ax-actions">
@@ -1009,8 +1029,9 @@ export function Editor({
               </p>
               {v.archived && (
                 <p className="ax-muted full">
-                  Arşivlemek panel erişimini kapatır; daha önce verilmiş Drive
-                  erişimini kapatmak için klasörün Paylaş menüsünü kullanın.
+                  Arşivlemek panel erişimini kapatır. Drive erişimini de
+                  kaldırmak için müşteri profilindeki “Müşteri erişimi” bölümünü
+                  kullanın.
                 </p>
               )}
               {toggle("Müşteriyi arşivle", "archived")}
@@ -1102,6 +1123,8 @@ export function Editor({
                 </p>
               )}
               {toggle("Bu plan iptal edildi", "cancelled")}
+              {v.kind === "Çekim" &&
+                toggle("Aylık kapsam dışında / ek çekim", "out_of_scope")}
               <p className="ax-muted full">
                 Katılımcılar · Seçim yapmazsan tüm ekip için ortak plan sayılır.
                 Katılımcı seçmek e-posta daveti göndermez.
@@ -1180,6 +1203,7 @@ export function Editor({
                 false,
               )}
               {toggle("Müşteri portalında paylaş", "shared")}
+              {toggle("Aylık kapsam dışında / ek teslim", "out_of_scope")}
               {row && (
                 <p className="ax-notice full">
                   Sürüm {row.revision}. Dosya bağlantısını değiştirmeniz yeni
@@ -1187,18 +1211,17 @@ export function Editor({
                   paylaşın.
                 </p>
               )}
-              {row &&
-                d.reviews
-                  .filter((r) => r.deliverable_id === row.id)
-                  .map((r) => (
-                    <div className="ax-note full" key={r.id}>
-                      <Badge>
-                        {r.decision} · v{r.revision}
-                      </Badge>
-                      <p>{r.comment}</p>
-                      <small>{dateLabel(r.created_at)}</small>
-                    </div>
-                  ))}
+              {row && (
+                <div className="full">
+                  <ReviewNotes
+                    delivery={current || row}
+                    reviews={d.reviews}
+                    staff
+                    preview={preview}
+                    refresh={refresh}
+                  />
+                </div>
+              )}
             </>
           )}
           {table === "entities" && (

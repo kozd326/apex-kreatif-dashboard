@@ -120,6 +120,7 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
   await db.exec(fs.readFileSync("supabase/migrations/20261117114447_flexible_calendar.sql", "utf8"));
   await db.exec(fs.readFileSync("supabase/migrations/20261117121039_client_workspace.sql", "utf8"));
   await db.exec(fs.readFileSync("supabase/migrations/20261117125356_automatic_delivery_folders.sql", "utf8"));
+  await db.exec(fs.readFileSync("supabase/migrations/20261117133339_customer_workflow.sql", "utf8"));
   assert.equal((await db.query("select has_function_privilege('anon','apex_bulk_update_tasks(jsonb,jsonb)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('anon','apex_review(uuid,integer,text,text)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('authenticated','apex_audit()','execute') allowed")).rows[0].allowed, false);
@@ -216,6 +217,7 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
     "apex_events",
     "apex_drive_folders",
     "apex_drive_shares",
+    "apex_requests", "apex_scopes", "apex_request_files",
   ])
     assert.equal(
       (await db.query(`select count(*)::int n from ${table}`)).rows[0].n,
@@ -292,6 +294,37 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
     ).rows[0].n,
     1,
   );
+  await db.exec('reset role');
+  await db.query("update apex_customers set archived=false where id=$1",[customer]);
+  await db.query("update apex_client_access set enabled=false where customer_id=$1",[customer]);
+  assert.equal((await db.query("select status from apex_drive_shares where customer_id=$1",[customer])).rows[0].status,'revoking');
+  await db.exec("set role authenticated;select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false)");
+  assert.equal((await db.query("select apex_can_view_customer($1) allowed",[customer])).rows[0].allowed,false);
+  await assert.rejects(()=>db.query("insert into apex_requests(customer_id,created_by,title) values($1,auth.uid(),'spoof')",[customer]),/row-level security/);
+  await assert.rejects(()=>db.query("select * from apex_uploads"),/permission denied/);
+  await db.exec("reset role");
+  await db.query("update apex_client_access set enabled=true where customer_id=$1",[customer]);
+  const request=(await db.query("insert into apex_requests(customer_id,created_by,title) values($1,'00000000-0000-4000-8000-000000000002','Client request') returning *",[customer])).rows[0];
+  await db.exec("set role authenticated;select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false)");
+  const plan=()=>db.query("select apex_plan_request($1,$2,'00000000-0000-4000-8000-000000000001','2026-12-01',true,500,'Planlandı') id",[request.id,request.version]);
+  const planned=(await plan()).rows[0].id;assert.equal((await plan()).rows[0].id,planned);
+  assert.equal((await db.query('select kind from apex_tasks where id=$1',[planned])).rows[0].kind,'Ek iş');
+  await db.query('update apex_tasks set checklist=$2 where id=$1',[planned,JSON.stringify([{id:'one',title:'Check',done:false}])]);
+  await assert.rejects(()=>db.query("update apex_tasks set status='Tamamlandı' where id=$1",[planned]),/kontrol listesini/);
+  await db.query("update apex_tasks set checklist=$2,status='Tamamlandı' where id=$1",[planned,JSON.stringify([{id:'one',title:'Check',done:true}])]);
+  const timed=(await db.query("insert into apex_deliverables(customer_id,title,url,status,shared) values($1,'Review','https://example.test/video','Onay bekliyor',true) returning id",[customer])).rows[0].id;
+  await db.exec("select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false)");
+  const rid='00000000-0000-4000-8000-000000000099';
+  const timedReview=()=>db.query("select apex_review_timed($1,1,'Revizyon istendi','Fix title',18,$2) id",[timed,rid]);
+  assert.equal((await timedReview()).rows[0].id,rid);assert.equal((await timedReview()).rows[0].id,rid);
+  await assert.rejects(()=>db.query("select apex_review($1,1,'Onaylandı','')",[timed]),/revizyonları/);
+  await assert.rejects(()=>db.query("select apex_review_timed($1,2,'Yorum','old',null,gen_random_uuid())",[timed]),/CONFLICT/);
+  await db.exec("select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000003',false)");
+  await assert.rejects(()=>db.query("select apex_review_timed($1,1,'Yorum','other',0,gen_random_uuid())",[timed]),/Yetkiniz/);
+  await db.exec("select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000001',false)");
+  await db.query('update apex_reviews set resolved=true where id=$1',[rid]);
+  await db.exec("select set_config('request.jwt.claim.sub','00000000-0000-4000-8000-000000000002',false)");
+  await db.query("select apex_review($1,1,'Onaylandı','')",[timed]);
   await db.close();
 });
 

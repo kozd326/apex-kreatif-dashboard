@@ -2610,3 +2610,17 @@
   .ax-portal-page .ax-simple-row > span:first-child { width: 100%; }
 }
 .ax-portal-page .ax-simple-row > .ax-badge { flex: 0 0 auto; }
+/* New customer tools use existing drawers and progressive disclosure. */
+.ax-request-section { margin-bottom: 20px; }
+.ax-app details > summary { cursor: pointer; padding: 8px 0; }
+.ax-app details[open] > summary { margin-bottom: 12px; }
+.ax-request-section label, .ax-note form label, .ax-upload-drop label, .ax-delivery-card > label { display: grid; gap: 7px; margin: 12px 0; }
+.ax-request-section input:not([type=checkbox]), .ax-request-section select, .ax-request-section textarea, .ax-note form input:not([type=checkbox]), .ax-note form select, .ax-note form textarea, .ax-delivery-card > label input { width: 100%; padding: 10px 12px; border: 1px solid var(--ax-border, #e7e5ed); border-radius: 10px; background: white; color: inherit; font: inherit; }
+.ax-next-step { border: 1px solid #ddd6fe; background: #f5f3ff; border-radius: 18px; padding: 24px; margin-bottom: 20px; }
+.ax-next-step h2 { margin: 8px 0; }
+.ax-next-step small { letter-spacing: .1em; color: #6550b5; }
+.ax-upload-drop { border: 1px dashed #b6a8e6; border-radius: 12px; padding: 16px; background: #faf9fd; }
+.ax-check { display:flex; gap:10px; align-items:center; padding:12px 0; }
+.ax-check input { width:18px; height:18px; flex:none; }
+.ax-app progress { accent-color: #7562c5; max-width:100%; }
+@media(max-width:600px){ .ax-note .ax-actions { flex-wrap:wrap; } .ax-note .ax-actions input { min-width:80px; } .ax-next-step {padding:18px;} }

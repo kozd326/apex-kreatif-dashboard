@@ -1,6 +1,8 @@
 import { ApiError, check, context } from "./server";
 import { portalProjection } from "./portal.mjs";
 import { invoiceBalance } from "./finance.mjs";
+import { scopeSummary } from "./customer-workflow.mjs";
+import { monthNow } from "./domain";
 type Context = Awaited<ReturnType<typeof context>>;
 export async function portalData(c: Context, previewCustomer?: string) {
   let ids: string[];
@@ -9,12 +11,13 @@ export async function portalData(c: Context, previewCustomer?: string) {
       throw new ApiError(403, "Bu alana erişim yetkiniz yok.");
     ids = [previewCustomer];
   } else {
-    const { data, error } = await c.admin
+    const { data: enabled, error: accessError } = await c.admin
       .from("apex_client_access")
       .select("customer_id")
-      .eq("user_id", c.user.id);
-    check(error);
-    ids = (data || []).map((a) => a.customer_id);
+      .eq("user_id", c.user.id)
+      .eq("enabled", true);
+    check(accessError);
+    ids = (enabled || []).map((a) => a.customer_id);
   }
   async function read(
     table: string,
@@ -97,12 +100,72 @@ export async function portalData(c: Context, previewCustomer?: string) {
     ),
     read(
       "apex_reviews",
-      "id,deliverable_id,revision,decision,comment,created_at",
+      "id,deliverable_id,revision,decision,comment,created_at,seconds,resolved,resolved_at",
       "deliverable_id",
       deliverables.map((d) => d.id),
     ),
   ]);
+  const [
+    requests,
+    scopes,
+    packages,
+    quotaDeliverables,
+    quotaEvents,
+    quotaProjects,
+  ] = await Promise.all([
+    read(
+      "apex_requests",
+      "id,customer_id,created_by,title,description,reference_url,desired_date,status,task_id,reply,out_of_scope,extra_price,created_at",
+      "customer_id",
+      ids,
+    ),
+    read("apex_scopes", "id,customer_id,month,quotas,note", "customer_id", ids),
+    read(
+      "apex_packages",
+      "id,customer_id,kind,active,start_month,end_month,quotas",
+      "customer_id",
+      ids,
+    ),
+    read(
+      "apex_deliverables",
+      "id,customer_id,project_id,kind,status,due_date,out_of_scope",
+      "customer_id",
+      ids,
+    ),
+    read(
+      "apex_events",
+      "id,customer_id,kind,starts_at,ends_at,cancelled,out_of_scope",
+      "customer_id",
+      ids,
+    ),
+    read("apex_projects", "id,customer_id,month", "customer_id", ids),
+  ]);
+  const requestFiles = await read(
+    "apex_request_files",
+    "id,request_id,name,size,mime",
+    "request_id",
+    requests.map((r) => r.id),
+  );
   return {
+    requests: requests.map(({ created_by, ...r }) => ({
+      ...r,
+      can_attach: !previewCustomer && created_by === c.user.id,
+    })),
+    requestFiles,
+    scopeSummaries: ids.map((id) => ({
+      customer_id: id,
+      ...scopeSummary(
+        {
+          scopes,
+          packages,
+          deliverables: quotaDeliverables,
+          events: quotaEvents,
+          projects: quotaProjects,
+        },
+        id,
+        monthNow(),
+      ),
+    })),
     member: {
       name: previewCustomer ? customers[0]?.name || "Müşteri" : c.member.name,
     },

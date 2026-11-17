@@ -6,6 +6,8 @@ import {
   driveApi,
   syncDeliveryFolder,
   shareDeliveryFolder,
+  revokeDeliveryFolder,
+  verifyFolder,
 } from "./drive-workflow.mjs";
 type Admin = Awaited<ReturnType<typeof context>>["admin"];
 export async function queueFolder(admin: Admin, customerId: string) {
@@ -64,12 +66,84 @@ export async function syncCustomerDrive(
       .single();
     check(error);
     if (!customer) throw new ApiError(404, "Müşteri bulunamadı.");
+    const drive = driveApi(await googleDriveToken(admin));
+    const { data: revocations, error: revError } = await admin
+      .from("apex_drive_shares")
+      .select("*")
+      .eq("customer_id", customerId)
+      .eq("status", "revoking");
+    check(revError);
+    for (const job of revocations || []) {
+      const markRevoked = async () => {
+        check(
+          (
+            await admin
+              .from("apex_drive_shares")
+              .update({
+                status: "revoked",
+                error: null,
+                last_attempt_at: new Date().toISOString(),
+              })
+              .eq("id", job.id)
+              .eq("status", "revoking")
+          ).error,
+        );
+      };
+      try {
+        if (!folder.file_id) {
+          await markRevoked();
+          continue;
+        }
+        verifyFolder(await drive.getFolder(folder.file_id), customerId);
+        await revokeDeliveryFolder({
+          fileId: folder.file_id,
+          email: job.email,
+          drive,
+          markRevoked,
+          authorize: async () => {
+            const [member, access] = await Promise.all([
+              admin
+                .from("apex_members")
+                .select("role")
+                .eq("id", job.user_id)
+                .maybeSingle(),
+              admin
+                .from("apex_client_access")
+                .select("enabled")
+                .eq("customer_id", customerId)
+                .eq("user_id", job.user_id)
+                .maybeSingle(),
+            ]);
+            check(member.error);
+            check(access.error);
+            return (
+              member.data?.role === "client" && access.data?.enabled === false
+            );
+          },
+        });
+      } catch (e) {
+        const warning = driveMessage(e);
+        check(
+          (
+            await admin
+              .from("apex_drive_shares")
+              .update({
+                error: warning,
+                last_attempt_at: new Date().toISOString(),
+              })
+              .eq("id", job.id)
+              .eq("status", "revoking")
+          ).error,
+        );
+        return { ready: false, warning };
+      }
+    }
+    if (customer.archived && revocations?.length) return { ready: true };
     if (customer.archived)
       throw new DriveFailure(
         "Müşteri arşivde; bekleyen Drive işlemi yapılmadı.",
         409,
       );
-    const drive = driveApi(await googleDriveToken(admin));
     const result = await syncDeliveryFolder({
       customer,
       folder,
@@ -129,7 +203,8 @@ export async function syncCustomerDrive(
             !!member?.active &&
             member.role === "partner" &&
             member.email === partner.email &&
-            !!activeCustomer && !activeCustomer.archived
+            !!activeCustomer &&
+            !activeCustomer.archived
           );
         },
         markShared: async () => {},
@@ -139,7 +214,7 @@ export async function syncCustomerDrive(
       .from("apex_drive_shares")
       .select("*")
       .eq("customer_id", customerId)
-      .neq("status", "shared")
+      .in("status", ["pending", "error", "blocked"])
       .order("last_attempt_at", { ascending: true, nullsFirst: true })
       .limit(5);
     if (userId) query = query.eq("user_id", userId);
@@ -164,6 +239,7 @@ export async function syncCustomerDrive(
                 .select("customer_id")
                 .eq("customer_id", customerId)
                 .eq("user_id", job.user_id)
+                .eq("enabled", true)
                 .maybeSingle(),
               admin
                 .from("apex_customers")
@@ -194,6 +270,7 @@ export async function syncCustomerDrive(
                   .eq("customer_id", customerId)
                   .eq("user_id", job.user_id)
                   .eq("email", job.email)
+                  .in("status", ["pending", "error", "blocked"])
               ).error,
             );
           },
@@ -215,6 +292,7 @@ export async function syncCustomerDrive(
               .eq("customer_id", customerId)
               .eq("user_id", job.user_id)
               .eq("email", job.email)
+              .in("status", ["pending", "error", "blocked"])
           ).error,
         );
       }
@@ -249,7 +327,7 @@ export function driveMessage(e: unknown) {
     : "Drive bağlantısına ulaşılamadı. İşlem yeniden denenecek.";
 }
 export async function retryDrive(admin: Admin) {
-  const [folders, shares] = await Promise.all([
+  const [folders, shares, revocations] = await Promise.all([
     admin
       .from("apex_drive_folders")
       .select("customer_id,apex_customers!inner(archived)")
@@ -263,14 +341,23 @@ export async function retryDrive(admin: Admin) {
       .in("status", ["pending", "error"])
       .order("last_attempt_at", { ascending: true, nullsFirst: true })
       .limit(5),
+    admin
+      .from("apex_drive_shares")
+      .select("customer_id")
+      .eq("status", "revoking")
+      .order("last_attempt_at", { ascending: true, nullsFirst: true })
+      .limit(5),
   ]);
   check(folders.error);
   check(shares.error);
+  check(revocations.error);
   const ids = [
     ...new Set(
-      [...(folders.data || []), ...(shares.data || [])].map(
-        (r) => r.customer_id,
-      ),
+      [
+        ...(revocations.data || []),
+        ...(folders.data || []),
+        ...(shares.data || []),
+      ].map((r) => r.customer_id),
     ),
   ].slice(0, 5);
   for (const id of ids) {
@@ -280,7 +367,12 @@ export async function retryDrive(admin: Admin) {
       .eq("id", id)
       .maybeSingle();
     check(error);
-    if (customer && !customer.archived) await syncCustomerDrive(admin, id);
+    if (
+      customer &&
+      (!customer.archived ||
+        revocations.data?.some((r) => r.customer_id === id))
+    )
+      await syncCustomerDrive(admin, id);
     else
       check(
         (

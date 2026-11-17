@@ -23,9 +23,14 @@ export function driveApi(accessToken, fetcher = fetch) {
       const details = await response.json().catch(() => ({}));
       const reason = details.error?.errors?.[0]?.reason;
       // Log only Google's machine-readable reason; never tokens, addresses, or response bodies.
-      console.error("Apex Drive request failed", response.status,
-        typeof reason === "string" && /^[a-zA-Z_]+$/.test(reason) ? reason : "unknown",
-        init.method || "GET");
+      console.error(
+        "Apex Drive request failed",
+        response.status,
+        typeof reason === "string" && /^[a-zA-Z_]+$/.test(reason)
+          ? reason
+          : "unknown",
+        init.method || "GET",
+      );
       throw new DriveFailure(
         response.status === 401
           ? "Google bağlantısını Ayarlar’dan yenileyin."
@@ -35,7 +40,7 @@ export function driveApi(accessToken, fetcher = fetch) {
         response.status,
       );
     }
-    return response.json();
+    return response.status === 204 ? null : response.json();
   };
   const fields =
     "id,name,mimeType,trashed,webViewLink,appProperties,capabilities(canShare)";
@@ -77,6 +82,11 @@ export function driveApi(accessToken, fetcher = fetch) {
       } while (page);
       return rows;
     },
+    revoke: (id, permissionId) =>
+      request(
+        `files/${encodeURIComponent(id)}/permissions/${encodeURIComponent(permissionId)}`,
+        { method: "DELETE" },
+      ),
     updateRole: (id, permissionId, role) =>
       request(
         `files/${encodeURIComponent(id)}/permissions/${encodeURIComponent(permissionId)}?fields=id,type,role,emailAddress`,
@@ -211,4 +221,54 @@ export async function shareDeliveryFolder({
     throw new DriveFailure("Paylaşım doğrulanamadı. Yeniden denenecek.");
   await markShared(permission.id);
   return permission.id;
+}
+
+export async function revokeDeliveryFolder({
+  fileId,
+  email,
+  drive,
+  authorize,
+  markRevoked,
+}) {
+  if (!(await authorize()))
+    throw new DriveFailure(
+      "Erişim durumu değişti; işlemi yeniden kontrol edin.",
+      409,
+    );
+  const list = await drive.permissions(fileId);
+  const permission = list.find(
+    (p) =>
+      p.type === "user" &&
+      !p.deleted &&
+      p.emailAddress?.toLowerCase() === email.toLowerCase(),
+  );
+  if (permission) {
+    if (["owner", "organizer", "fileOrganizer"].includes(permission.role))
+      throw new DriveFailure("Klasör sahibinin erişimi kapatılamaz.", 409);
+    if (!(await authorize()))
+      throw new DriveFailure(
+        "Erişim yeniden açılmış; kapatma durduruldu.",
+        409,
+      );
+    try {
+      await drive.revoke(fileId, permission.id);
+    } catch (e) {
+      if (e.status !== 404) throw e;
+    }
+  }
+  const remaining = await drive.permissions(fileId);
+  if (
+    remaining.some(
+      (p) =>
+        !p.deleted &&
+        ((p.type === "user" &&
+          p.emailAddress?.toLowerCase() === email.toLowerCase()) ||
+          ["anyone", "domain", "group"].includes(p.type)),
+    )
+  )
+    throw new DriveFailure(
+      "Kişisel erişim kaldırıldı; klasörde başka bir genel veya grup paylaşımı var. Drive paylaşımını kontrol edin.",
+      409,
+    );
+  await markRevoked();
 }
