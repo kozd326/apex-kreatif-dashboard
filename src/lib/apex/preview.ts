@@ -33,7 +33,9 @@ export function previewData(): Dataset {
     owner_id: "kaan",
     stage: "Anlaşıldı",
     next_follow_up: today(),
-    notes: "Örnek müşteri kaydı",
+    notes: "Örnek müşteri kaydı · ekip içi not",
+    portal_note:
+      "Bu ay sosyal medya içeriklerinizi ve tanıtım filminizi hazırlıyoruz. Çekim planı, kurgu ilerleyişi ve onay bekleyen teslimler aşağıda.",
     quote_amount: 25000,
     version: 1,
   };
@@ -114,8 +116,15 @@ export function previewData(): Dataset {
         owner_id: "muratcan",
       },
     ],
-    projects: [project],
-    tasks,
+    projects: [{ ...project, shared: true }],
+    tasks: tasks.map((t, i) => ({
+      ...t,
+      shared: i < 2,
+      customer_note:
+        i === 1
+          ? "İlk kurgu hazırlanıyor; hazır olduğunda teslim kartından izleyebilirsiniz."
+          : "Çekimde kullanılacak alanları birlikte netleştireceğiz.",
+    })),
     comments: [],
     deliverables: [
       {
@@ -168,10 +177,16 @@ export function previewData(): Dataset {
       {
         id: "shoot",
         title: "Yeni koleksiyon çekimi",
+        shared: true,
+        location: "Müşteri stüdyosu",
         customer_id: "studio",
         kind: "Çekim",
-        starts_at: today() + "T13:00:00+03:00",
-        ends_at: today() + "T15:00:00+03:00",
+        starts_at:
+          new Date(Date.now() + 86400000).toISOString().slice(0, 10) +
+          "T13:00:00+03:00",
+        ends_at:
+          new Date(Date.now() + 86400000).toISOString().slice(0, 10) +
+          "T15:00:00+03:00",
         attendees: ["kaan", "kubilay"],
         version: 1,
       },

@@ -1,3 +1,4 @@
+import { portalData } from "@/lib/apex/portal-server";
 import { NextRequest, NextResponse } from "next/server";
 import {
   context,
@@ -9,11 +10,7 @@ import {
   validateRelations,
   allRows,
 } from "@/lib/apex/server";
-import {
-  financeSummary,
-  invoiceBalance,
-  validateInvoiceTotals,
-} from "@/lib/apex/finance.mjs";
+import { financeSummary, validateInvoiceTotals } from "@/lib/apex/finance.mjs";
 import { today } from "@/lib/apex/domain";
 import { z } from "zod";
 import { createHash, randomUUID } from "node:crypto";
@@ -49,9 +46,20 @@ export async function GET(
     const c = await context(req, false);
     const { action } = await params;
     if (action === "me") return NextResponse.json(c.member);
-    if (action === "portal") return NextResponse.json(await portal(c));
+    if (action === "portal")
+      return NextResponse.json(await portalData(c), {
+        headers: { "Cache-Control": "no-store" },
+      });
     if (c.member.role === "client")
       throw new ApiError(403, "Bu alana erişim yetkiniz yok.");
+    if (action === "portal-preview")
+      return NextResponse.json(
+        await portalData(
+          c,
+          z.string().uuid().parse(req.nextUrl.searchParams.get("customer_id")),
+        ),
+        { headers: { "Cache-Control": "no-store" } },
+      );
     if (action === "google-connect" || action === "google-callback")
       return googleAction(req, c, action);
     if (action === "sheets-connect" || action === "sheets-callback")
@@ -86,6 +94,9 @@ export async function GET(
           await allRows(c.db, table),
         ]),
       );
+      const dataset = Object.fromEntries(entries);
+      const archivedTasks = dataset.tasks.filter((t: any) => t.archived);
+      dataset.tasks = dataset.tasks.filter((t: any) => !t.archived);
       const { data: connection } = await c.admin
         .from("apex_settings")
         .select("key")
@@ -109,7 +120,8 @@ export async function GET(
       const spreadsheetId = financeSettings.sheets?.spreadsheet_id;
       return NextResponse.json(
         {
-          ...Object.fromEntries(entries),
+          ...dataset,
+          archivedTasks,
           member: c.member,
           calendar: calendar || [],
           integration: {
@@ -215,6 +227,23 @@ export async function POST(
       const schema = schemas[table as keyof typeof schemas];
       const patch: any = id ? schema.partial().parse(data) : schema.parse(data);
       await validateRelations(c.db, patch);
+      if (["tasks", "events"].includes(table)) {
+        let complete = patch;
+        if (id) {
+          const { data: old, error } = await c.db
+            .from(tables[table])
+            .select("customer_id,shared")
+            .eq("id", id)
+            .single();
+          check(error);
+          complete = { ...old, ...patch };
+        }
+        if (complete.shared && !complete.customer_id)
+          throw new ApiError(
+            400,
+            "Müşteriye göstermek için bir müşteri seçin.",
+          );
+      }
       if (table === "comments" && !patch.task_id && !patch.customer_id)
         throw new ApiError(400, "Yorumun bağlı olduğu işi seçin.");
       if (table === "comments" && id)
@@ -325,9 +354,9 @@ export async function POST(
           patch.shared = false;
           patch.delivered_at = null;
         }
-        if (patch.status === "Teslim edildi")
-          patch.delivered_at = new Date().toISOString();
       }
+      if (table === "deliverables" && patch.status === "Teslim edildi")
+        patch.delivered_at = new Date().toISOString();
       let result;
       if (id && table === "tasks") {
         if (!version) throw new ApiError(400, "Kayıt sürümü eksik.");
@@ -413,16 +442,23 @@ export async function POST(
         .parse(body);
       const { data: customer, error: ce } = await c.db
         .from("apex_customers")
-        .select("id")
+        .select("id,archived")
         .eq("id", customer_id)
         .single();
       check(ce);
-      if (!customer) throw new ApiError(404, "Müşteri bulunamadı.");
-      const { data: existing } = await c.admin
+      if (!customer || customer.archived)
+        throw new ApiError(404, "Müşteri bulunamadı.");
+      const { data: existing, error: existingError } = await c.admin
         .from("apex_members")
         .select("*")
         .eq("email", email.toLowerCase())
         .maybeSingle();
+      check(existingError);
+      if (existing && !existing.active)
+        throw new ApiError(
+          400,
+          "Bu hesap kapalı. Önce hesap erişimini kontrol edin.",
+        );
       let userId = existing?.id;
       if (existing && existing.role !== "client")
         throw new ApiError(400, "Ekip hesabı müşteri hesabına dönüştürülemez.");
@@ -449,7 +485,7 @@ export async function POST(
         .from("apex_client_access")
         .upsert({ user_id: userId, customer_id });
       check(error);
-      return NextResponse.json({ ok: true });
+      return NextResponse.json({ ok: true, invited: !existing });
     }
     if (action === "ocr")
       return extractDocument(z.string().uuid().parse(body.id), c);
@@ -459,81 +495,6 @@ export async function POST(
   }
 }
 
-async function portal(c: Awaited<ReturnType<typeof context>>) {
-  const { data: access, error } = await c.admin
-    .from("apex_client_access")
-    .select("customer_id")
-    .eq("user_id", c.user.id);
-  check(error);
-  const ids = (access || []).map((a) => a.customer_id);
-  if (!ids.length)
-    return {
-      member: c.member,
-      customers: [],
-      projects: [],
-      deliverables: [],
-      invoices: [],
-      reviews: [],
-    };
-  const [customers, projects, deliverables, invoices] = await Promise.all([
-    c.admin.from("apex_customers").select("id,name,services").in("id", ids),
-    c.admin
-      .from("apex_projects")
-      .select("id,customer_id,name,deadline,status,month")
-      .in("customer_id", ids)
-      .eq("shared", true),
-    c.admin
-      .from("apex_deliverables")
-      .select(
-        "id,customer_id,project_id,title,kind,url,revision,status,due_date,delivered_at",
-      )
-      .in("customer_id", ids)
-      .eq("shared", true),
-    c.admin
-      .from("apex_invoices")
-      .select(
-        "id,customer_id,number,issue_date,due_date,total,net,vat,refund,description",
-      )
-      .in("customer_id", ids)
-      .eq("direction", "sale")
-      .eq("shared", true)
-      .eq("void", false),
-  ]);
-  for (const r of [customers, projects, deliverables, invoices]) check(r.error);
-  const inv = invoices.data || [];
-  const dels = deliverables.data || [];
-  const payments = inv.length
-    ? await c.admin
-        .from("apex_cash")
-        .select("invoice_id,amount,direction,void")
-        .in(
-          "invoice_id",
-          inv.map((i) => i.id),
-        )
-    : { data: [], error: null };
-  check(payments.error);
-  const reviews = dels.length
-    ? await c.admin
-        .from("apex_reviews")
-        .select("id,deliverable_id,revision,decision,comment,created_at")
-        .in(
-          "deliverable_id",
-          dels.map((i) => i.id),
-        )
-    : { data: [], error: null };
-  check(reviews.error);
-  return {
-    member: c.member,
-    customers: customers.data,
-    projects: projects.data,
-    deliverables: dels,
-    invoices: inv.map((i) => ({
-      ...i,
-      ...invoiceBalance({ ...i, direction: "sale" }, payments.data || []),
-    })),
-    reviews: reviews.data,
-  };
-}
 async function upload(
   req: NextRequest,
   c: Awaited<ReturnType<typeof context>>,

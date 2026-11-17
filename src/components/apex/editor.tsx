@@ -1,4 +1,5 @@
 "use client";
+import { ClientPortal } from "./client-portal";
 import { useState, useEffect, useRef, ReactNode } from "react";
 import { changedFields, localKey } from "@/lib/apex/local-state.mjs";
 import { useDraft, DraftNotice } from "./local-state";
@@ -195,6 +196,9 @@ export function Editor({
     <Field label={label} full>
       <textarea
         rows={3}
+        maxLength={
+          ["portal_note", "customer_note"].includes(key) ? 4000 : 12000
+        }
         value={v[key] || ""}
         onChange={(e) => set(key, e.target.value)}
       />
@@ -264,9 +268,13 @@ export function Editor({
     setErr("");
     try {
       if (table === "invite") {
-        await api("invite", v);
+        const result = await api("invite", v);
         await refresh();
-        notify("Müşteri daveti gönderildi.");
+        notify(
+          result.invited
+            ? "Müşteri daveti gönderildi."
+            : "Mevcut müşteri hesabına erişim eklendi. Yeni e-posta gönderilmedi.",
+        );
         onClose();
         return;
       }
@@ -288,6 +296,9 @@ export function Editor({
           "checklist",
           "links",
           "predecessor_id",
+          "shared",
+          "customer_note",
+          "archived",
         ],
         customers: [
           "name",
@@ -302,6 +313,8 @@ export function Editor({
           "quote_amount",
           "archived",
           "ad_budget",
+          "portal_note",
+          "portal_folder_url",
         ],
         projects: [
           "name",
@@ -337,6 +350,7 @@ export function Editor({
           "attendees",
           "cancelled",
           "all_day",
+          "shared",
           "description",
         ],
         deliverables: [
@@ -538,6 +552,16 @@ export function Editor({
       ))}
     </div>
   );
+  if (kind === "client-preview" && current)
+    return (
+      <Modal title="Müşteri gibi görüntüle" onClose={onClose} wide>
+        <ClientPortal
+          customerId={current.id}
+          sampleData={preview ? d : undefined}
+          embedded
+        />
+      </Modal>
+    );
   if (kind === "customer-detail" && current)
     return (
       <Modal title={current.name} onClose={onClose} drawer>
@@ -553,6 +577,29 @@ export function Editor({
           >
             Düzenle
           </Button>
+        </div>
+        <div className="ax-actions" style={{ marginBottom: 16 }}>
+          <Button
+            variant="secondary"
+            onClick={() => open("client-preview", current)}
+          >
+            Müşteri gibi görüntüle
+          </Button>
+          {d.member.role === "partner" && (
+            <Button
+              variant="secondary"
+              disabled={preview}
+              onClick={() =>
+                open("invite", undefined, {
+                  customer_id: current.id,
+                  email: current.email || "",
+                  name: current.contact_name || "",
+                })
+              }
+            >
+              Müşteriyi davet et
+            </Button>
+          )}
         </div>
         <Tabs
           items={["Özet", "İşler", "Projeler", "Teslimler", "Finans", "Notlar"]}
@@ -770,7 +817,18 @@ export function Editor({
               {select("Kontrol edecek", "reviewer_id", memberOptions)}
               {field("Teslim tarihi", "due_date", "date")}
               {select("İş türü", "kind", ["İş", "Revizyon", "Ek iş"], false)}
-              {area("Açıklama / brief", "description")}
+              {area("Açıklama / brief · yalnız ekip", "description")}
+              {toggle("Bu işi müşteriye göster", "shared")}
+              {v.shared && (
+                <>
+                  <p className="ax-muted full">
+                    Müşteri başlığı, durumu, teslim tarihini ve aşağıdaki notu
+                    görür. Müşteri seçimi zorunludur.
+                  </p>
+                  {area("Müşterinin göreceği açıklama", "customer_note")}
+                </>
+              )}
+              {row && toggle("Bu işi arşivle", "archived")}
               {field("Neyi bekliyoruz?", "waiting_reason")}
               {field("Takip tarihi", "follow_up", "date")}
               {select("Dönüşü takip edecek", "follow_up_owner", memberOptions)}
@@ -932,7 +990,24 @@ export function Editor({
                 "ad_budget",
                 "number",
               )}
-              {area("Notlar / anlaşma kapsamı", "notes")}
+              {area("Notlar / anlaşma kapsamı · yalnız ekip", "notes")}
+              {area(
+                "Müşteri alanındaki karşılama / kapsam notu",
+                "portal_note",
+              )}
+              {field(
+                "Müşteriye özel Teslimler klasörü · Google Drive bağlantısı",
+                "portal_folder_url",
+                "url",
+              )}
+              <p className="ax-notice full">
+                Drive’da bu müşteriye ayrı bir “Teslimler” klasörü açın, yalnız
+                teslim dosyalarını buraya yükleyin. Klasörü müşterinin davet
+                e-postasıyla “Görüntüleyici” olarak paylaşın ve bağlantısını
+                yukarıya yapıştırın. Panel daveti, Drive erişimini kendiliğinden
+                açmaz. Yeni yüklemeler klasörde görünür; onay istenecek videolar
+                için ayrıca teslim kartı ekleyin.
+              </p>
               {toggle("Müşteriyi arşivle", "archived")}
             </>
           )}
@@ -942,7 +1017,7 @@ export function Editor({
               {select(
                 "Müşteri · boşsa Apex iç projesi",
                 "customer_id",
-                d.customers,
+                d.customers.filter((c) => !c.archived),
               )}
               {select("Hizmet", "service", SERVICES, false)}
               {select("Sorumlu", "owner_id", memberOptions)}
@@ -1012,6 +1087,14 @@ export function Editor({
               {area(
                 "Açıklama / hazırlık notu · yalnızca panelde",
                 "description",
+              )}
+              {toggle("Bu planı müşteriye göster", "shared")}
+              {v.shared && (
+                <p className="ax-muted full">
+                  Müşteri başlık, tür, tarih, yer ve iptal durumunu görür.
+                  Hazırlık notu ve ekip katılımcıları paylaşılmaz. Müşteri
+                  seçimi zorunludur.
+                </p>
               )}
               {toggle("Bu plan iptal edildi", "cancelled")}
               <p className="ax-muted full">
@@ -1127,12 +1210,15 @@ export function Editor({
               {select(
                 "Erişebileceği müşteri",
                 "customer_id",
-                d.customers,
+                d.customers.filter((c) => !c.archived),
                 false,
               )}
               <p className="ax-notice full">
-                Davet edilen kişi sadece bu müşterinin paylaşılan kayıtlarını
-                görebilir.
+                Davet edilen kişi bu müşteriye ait hizmetleri, müşteri notunu ve
+                teslim klasörünü; ayrıca paylaşımı açılmış işleri, projeleri,
+                takvim kayıtlarını, teslimleri ve satış faturalarını görür. İç
+                notlar, diğer müşteriler ve Apex’in genel finansı görünmez.
+                Drive klasörünü aynı e-posta ile ayrıca paylaşın.
               </p>
             </>
           )}

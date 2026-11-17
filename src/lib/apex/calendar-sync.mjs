@@ -26,7 +26,7 @@ export function calendarEntries({
   };
   return [
     ...tasks
-      .filter((t) => t.due_date && t.status !== "Tamamlandı")
+      .filter((t) => !t.archived && t.due_date && t.status !== "Tamamlandı")
       .map((t) => dated("task:" + t.id, t.title, t.due_date)),
     ...projects
       .filter((p) => p.deadline && p.status === "Aktif")
