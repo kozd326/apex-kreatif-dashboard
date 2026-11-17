@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { eventRange } from "./calendar.mjs";
 export function calendarEventId(key, generation = 0) {
   return (
     "a9e" + createHash("sha256").update(`${key}:${generation}`).digest("hex")
@@ -39,8 +40,12 @@ export function calendarEntries({
         key: "event:" + e.id,
         body: {
           summary: e.title,
-          start: { dateTime: e.starts_at, timeZone: "Europe/Istanbul" },
-          end: { dateTime: e.ends_at, timeZone: "Europe/Istanbul" },
+          start: e.all_day
+            ? { date: eventRange(e).start }
+            : { dateTime: e.starts_at, timeZone: "Europe/Istanbul" },
+          end: e.all_day
+            ? { date: eventRange(e).end }
+            : { dateTime: e.ends_at, timeZone: "Europe/Istanbul" },
           location: e.location,
         },
       })),

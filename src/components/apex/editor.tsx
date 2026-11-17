@@ -3,6 +3,12 @@ import { useState, useEffect, useRef, ReactNode } from "react";
 import { changedFields, localKey } from "@/lib/apex/local-state.mjs";
 import { useDraft, DraftNotice } from "./local-state";
 import {
+  EVENT_KINDS,
+  eventForm,
+  eventTimes,
+  eventConflicts,
+} from "@/lib/apex/calendar.mjs";
+import {
   Row,
   Dataset,
   STAGES,
@@ -83,7 +89,9 @@ export function Editor({
         },
         events: {
           title: "",
-          kind: "Toplantı",
+          kind: "Genel plan",
+          all_day: false,
+          description: "",
           starts_at: today() + "T10:00",
           ends_at: today() + "T11:00",
           attendees: [],
@@ -115,12 +123,7 @@ export function Editor({
     )[table] || {}),
     ...defaults,
     ...row,
-    ...(row?.starts_at
-      ? {
-          starts_at: localDateTime(row.starts_at),
-          ends_at: localDateTime(row.ends_at),
-        }
-      : {}),
+    ...(row?.starts_at ? eventForm(row) : {}),
   }));
   const [busy, setBusy] = useState(false),
     [err, setErr] = useState(""),
@@ -130,6 +133,8 @@ export function Editor({
     [mentions, setMentions] = useState<string[]>([]);
   const initialValues = useRef(v);
   const [formDirty, setFormDirty] = useState(false);
+  const conflicts =
+    table === "events" ? eventConflicts(v, d.events, row?.id) : [];
   const [commentDirty, setCommentDirty] = useState(false);
   const supportsDraft = [
     "tasks",
@@ -331,6 +336,8 @@ export function Editor({
           "location",
           "attendees",
           "cancelled",
+          "all_day",
+          "description",
         ],
         deliverables: [
           "customer_id",
@@ -405,8 +412,7 @@ export function Editor({
               : v[k];
         }
       if (table === "events") {
-        patch.starts_at = new Date(v.starts_at + ":00+03:00").toISOString();
-        patch.ends_at = new Date(v.ends_at + ":00+03:00").toISOString();
+        Object.assign(patch, eventTimes(v));
       }
       if (table === "invoices" && !v.review_confirmed) {
         setErr("Belgeyi kontrol ettiğinizi işaretleyin.");
@@ -727,7 +733,7 @@ export function Editor({
     customers: "Müşteri",
     projects: "Proje",
     packages: "Aylık paket",
-    events: "Takvim kaydı",
+    events: "Etkinlik",
     deliverables: "Teslim",
     entities: "Fatura düzenleyen işletme",
     invoices: "Fatura / gider kaydı",
@@ -949,22 +955,69 @@ export function Editor({
           {table === "events" && (
             <>
               {field("Başlık", "title", "text", true)}
-              {select("Tür", "kind", ["Çekim", "Toplantı"], false)}
+              <Field label="Etkinlik türü">
+                <input
+                  list="apex-event-kinds"
+                  value={v.kind}
+                  maxLength={100}
+                  required
+                  onChange={(e) => set("kind", e.target.value)}
+                  placeholder="Seç veya kendi türünü yaz"
+                />
+                <datalist id="apex-event-kinds">
+                  {EVENT_KINDS.map((name) => (
+                    <option key={name} value={name} />
+                  ))}
+                </datalist>
+              </Field>
+              <p className="ax-muted full">
+                Müşteri veya proje seçmek zorunlu değil. Ekip içi planları da
+                buraya ekleyebilirsin.
+              </p>
               {customerFields}
+              <label className="ax-check-label full">
+                <input
+                  type="checkbox"
+                  checked={!!v.all_day}
+                  onChange={(e) => {
+                    const all = e.target.checked;
+                    setFormDirty(true);
+                    setV((old: any) => ({
+                      ...old,
+                      all_day: all,
+                      starts_at: all
+                        ? old.starts_at.slice(0, 10)
+                        : old.starts_at.slice(0, 10) + "T10:00",
+                      ends_at: all
+                        ? old.ends_at.slice(0, 10)
+                        : old.ends_at.slice(0, 10) + "T11:00",
+                    }));
+                  }}
+                />{" "}
+                Tüm gün
+              </label>
               {field(
-                "Başlangıç · İstanbul saati",
+                v.all_day ? "İlk gün" : "Başlangıç · İstanbul saati",
                 "starts_at",
-                "datetime-local",
+                v.all_day ? "date" : "datetime-local",
                 true,
               )}
               {field(
-                "Bitiş · İstanbul saati",
+                v.all_day ? "Son gün · bu gün dahil" : "Bitiş · İstanbul saati",
                 "ends_at",
-                "datetime-local",
+                v.all_day ? "date" : "datetime-local",
                 true,
               )}
               {field("Yer", "location")}
+              {area(
+                "Açıklama / hazırlık notu · yalnızca panelde",
+                "description",
+              )}
               {toggle("Bu plan iptal edildi", "cancelled")}
+              <p className="ax-muted full">
+                Katılımcılar · Seçim yapmazsan tüm ekip için ortak plan sayılır.
+                Katılımcı seçmek e-posta daveti göndermez.
+              </p>
               <div className="full ax-service-pills">
                 {memberOptions.map((m) => (
                   <label key={m.id}>
@@ -984,6 +1037,26 @@ export function Editor({
                   </label>
                 ))}
               </div>
+              {conflicts.length > 0 && (
+                <div className="ax-notice full" role="status">
+                  <strong>Aynı saatlerde başka plan var.</strong>
+                  <p>
+                    Ortak katılımcıların takvimini kontrol et. Gerekirse yine de
+                    kaydedebilirsin.
+                  </p>
+                  <ul>
+                    {conflicts.slice(0, 4).map((event: Row) => (
+                      <li key={event.id}>
+                        {event.title} · {dateLabel(event.starts_at)}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              <p className="ax-muted full">
+                Başlık, tarih ve yer bağlı ortak Google Takvim’e aktarılır.
+                Açıklama panelde kalır.
+              </p>
             </>
           )}
           {table === "deliverables" && (
@@ -1523,9 +1596,4 @@ export function Editor({
       )}
     </Modal>
   );
-}
-function localDateTime(value: string) {
-  return new Date(new Date(value).getTime() + 3 * 3600000)
-    .toISOString()
-    .slice(0, 16);
 }

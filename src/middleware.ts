@@ -39,7 +39,6 @@ export async function middleware(request: NextRequest) {
     "proposals",
     "content",
     "ads",
-    "guide",
     "onboarding",
     "reports",
     "sales",
