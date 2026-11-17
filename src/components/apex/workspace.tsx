@@ -217,7 +217,9 @@ export default function WorkspacePage({
       notify(
         preview
           ? "Örnek kayıt güncellendi. Gerçek veriler etkilenmedi."
-          : "Kaydedildi.",
+          : result.drive_warning
+            ? `Müşteri kaydedildi. ${result.drive_warning} Müşteri profilinden yeniden deneyebilirsiniz.`
+            : "Kaydedildi.",
       );
       const inverse =
         options?.undo === false ? null : undoPatch(table, data, row);

@@ -1,4 +1,5 @@
 "use client";
+import { CustomerDrive } from "./customer-drive";
 import { ClientPortal } from "./client-portal";
 import { useState, useEffect, useRef, ReactNode } from "react";
 import { changedFields, localKey } from "@/lib/apex/local-state.mjs";
@@ -271,11 +272,15 @@ export function Editor({
         const result = await api("invite", v);
         await refresh();
         notify(
-          result.invited
-            ? "Müşteri daveti gönderildi."
-            : "Mevcut müşteri hesabına erişim eklendi. Yeni e-posta gönderilmedi.",
+          result.drive_warning
+            ? `Panel erişimi açıldı. Drive erişimi bekliyor: ${result.drive_warning}`
+            : result.invited
+              ? "Müşteri daveti gönderildi; Drive erişimi açıldı."
+              : "Mevcut müşteri hesabı ve Drive erişimi hazır.",
         );
-        onClose();
+        const customer = d.customers.find((c) => c.id === v.customer_id);
+        if (customer) open("customer-detail", customer);
+        else onClose();
         return;
       }
       const keys: Record<string, string[]> = {
@@ -314,7 +319,6 @@ export function Editor({
           "archived",
           "ad_budget",
           "portal_note",
-          "portal_folder_url",
         ],
         projects: [
           "name",
@@ -432,10 +436,11 @@ export function Editor({
         setErr("Belgeyi kontrol ettiğinizi işaretleyin.");
         return;
       }
-      await save(table, patch, row);
+      const result = await save(table, patch, row);
       setFormDirty(false);
       formDraft.clear();
-      onClose();
+      if (table === "customers" && !row) open("customer-detail", result);
+      else onClose();
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -601,6 +606,7 @@ export function Editor({
             </Button>
           )}
         </div>
+        <CustomerDrive customer={current} />
         <Tabs
           items={["Özet", "İşler", "Projeler", "Teslimler", "Finans", "Notlar"]}
           value={detailTab}
@@ -995,19 +1001,18 @@ export function Editor({
                 "Müşteri alanındaki karşılama / kapsam notu",
                 "portal_note",
               )}
-              {field(
-                "Müşteriye özel Teslimler klasörü · Google Drive bağlantısı",
-                "portal_folder_url",
-                "url",
-              )}
               <p className="ax-notice full">
-                Drive’da bu müşteriye ayrı bir “Teslimler” klasörü açın, yalnız
-                teslim dosyalarını buraya yükleyin. Klasörü müşterinin davet
-                e-postasıyla “Görüntüleyici” olarak paylaşın ve bağlantısını
-                yukarıya yapıştırın. Panel daveti, Drive erişimini kendiliğinden
-                açmaz. Yeni yüklemeler klasörde görünür; onay istenecek videolar
-                için ayrıca teslim kartı ekleyin.
+                Müşteriyi kaydettiğinizde Drive teslim klasörü otomatik
+                oluşturulur. Müşteriyi davet ettiğinizde aynı e-posta adresine
+                yalnız bu klasör için görüntüleme erişimi verilir. Klasör
+                bağlantısını kopyalayıp yapıştırmanız gerekmez.
               </p>
+              {v.archived && (
+                <p className="ax-muted full">
+                  Arşivlemek panel erişimini kapatır; daha önce verilmiş Drive
+                  erişimini kapatmak için klasörün Paylaş menüsünü kullanın.
+                </p>
+              )}
               {toggle("Müşteriyi arşivle", "archived")}
             </>
           )}
@@ -1218,7 +1223,9 @@ export function Editor({
                 teslim klasörünü; ayrıca paylaşımı açılmış işleri, projeleri,
                 takvim kayıtlarını, teslimleri ve satış faturalarını görür. İç
                 notlar, diğer müşteriler ve Apex’in genel finansı görünmez.
-                Drive klasörünü aynı e-posta ile ayrıca paylaşın.
+                Davet gönderilince bu e-posta adresine teslim klasörü için
+                görüntüleme erişimi de otomatik açılır; Google paylaşım
+                bildirimi gönderir.
               </p>
             </>
           )}

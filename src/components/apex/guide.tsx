@@ -56,10 +56,10 @@ const sections = [
     page: "customers",
     steps: [
       "Müşteri profilinde Düzenle’ye bas. Müşterinin göreceği karşılama notunu ve hizmetleri gir; ekip içi notlar ayrı kalır.",
-      "Drive’da her müşteriye ayrı bir Teslimler klasörü aç. Klasörü müşterinin Google e-postasıyla Görüntüleyici olarak paylaş, bağlantısını müşteri profiline kaydet. Yeni videolar bu klasörde görünür.",
+      "Müşteriyi kaydettiğinde ona özel Drive Teslimler klasörü otomatik açılır. Müşteri profilindeki Teslimler klasörünü aç düğmesiyle videoları bu klasöre yükle.",
       "İş ve takvim kayıtlarında Müşteriye göster’i aç. Müşteriyi seç; iç brief ve ekip notları paylaşılmaz. Çekim gününü etkinlik, kurgu aşamasını iş, videoyu teslim kartı olarak ekle.",
       "Teslim kartına video bağlantısını ve hedef teslim tarihini yaz. Hazır olunca paylaşımı aç ve Onay bekliyor yap. Müşteri Drive videosunu izleyebilir, o sürümü onaylayabilir veya revizyon isteyebilir. Bağlantı değişince paylaşım kapanır; yeni sürümü kontrol ederek yeniden paylaş.",
-      "Müşteri gibi görüntüle ile ekranı kontrol et, sonra Müşteriyi davet et’e bas. Müşteri yalnız kendisine açılan kayıtları ve paylaşılan satış faturalarını görür. Panel daveti Drive erişimini açmaz; klasör paylaşımını ayrıca yap.",
+      "Müşteri gibi görüntüle ile ekranı kontrol et, sonra Müşteriyi davet et’e bas. Müşteri yalnız kendisine açılan kayıtları ve paylaşılan satış faturalarını görür. Davet adresine Drive klasörü için görüntüleme erişimi de otomatik verilir. Bağlantı sorunu olursa profildeki durumdan takip et veya Yeniden dene’ye bas.",
     ],
   },
   {

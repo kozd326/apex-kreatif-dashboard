@@ -1,3 +1,4 @@
+import { queueFolder, syncCustomerDrive, driveMessage } from "@/lib/apex/drive";
 import { portalData } from "@/lib/apex/portal-server";
 import { NextRequest, NextResponse } from "next/server";
 import {
@@ -37,6 +38,8 @@ const datasetTables = {
   activity: "apex_activity",
   notificationReads: "apex_notification_reads",
   documents: "apex_documents",
+  driveFolders: "apex_drive_folders",
+  driveShares: "apex_drive_shares",
 };
 export async function GET(
   req: NextRequest,
@@ -91,7 +94,15 @@ export async function GET(
       const entries = await Promise.all(
         Object.entries(datasetTables).map(async ([key, table]) => [
           key,
-          await allRows(c.db, table),
+          await allRows(
+            c.db,
+            table,
+            key === "driveFolders"
+              ? "id,customer_id,status,error"
+              : key === "driveShares"
+                ? "id,customer_id,user_id,email,status,error"
+                : "*",
+          ),
         ]),
       );
       const dataset = Object.fromEntries(entries);
@@ -397,7 +408,43 @@ export async function POST(
         check(error);
         result = row;
       }
+      if (table === "customers" && !id && !result.archived) {
+        let driveWarning = "";
+        try {
+          await queueFolder(c.admin, result.id);
+          const drive = await syncCustomerDrive(c.admin, result.id);
+          driveWarning = drive.warning || "";
+        } catch (e) {
+          driveWarning = driveMessage(e);
+        }
+        const { data: latest, error } = await c.db
+          .from("apex_customers")
+          .select("*")
+          .eq("id", result.id)
+          .single();
+        check(error);
+        return NextResponse.json({
+          ...latest,
+          ...(driveWarning ? { drive_warning: driveWarning } : {}),
+        });
+      }
       return NextResponse.json(result);
+    }
+    if (action === "customer-drive") {
+      const id = z.string().uuid().parse(body.customer_id);
+      const { data: customer, error } = await c.db
+        .from("apex_customers")
+        .select("id,archived")
+        .eq("id", id)
+        .single();
+      check(error);
+      if (!customer) throw new ApiError(404, "Müşteri bulunamadı.");
+      if (customer.archived)
+        throw new ApiError(
+          400,
+          "Arşivlenen müşteri için Drive işlemi yapılamaz.",
+        );
+      return NextResponse.json(await syncCustomerDrive(c.admin, id));
     }
     if (action === "generate-month") {
       const month = z
@@ -435,7 +482,11 @@ export async function POST(
         throw new ApiError(403, "Davet için ortak yetkisi gerekiyor.");
       const { email, name, customer_id } = z
         .object({
-          email: z.string().email(),
+          email: z
+            .string()
+            .trim()
+            .email()
+            .transform((s) => s.toLowerCase()),
           name: z.string().min(1).max(100),
           customer_id: z.string().uuid(),
         })
@@ -485,7 +536,20 @@ export async function POST(
         .from("apex_client_access")
         .upsert({ user_id: userId, customer_id });
       check(error);
-      return NextResponse.json({ ok: true, invited: !existing });
+      let driveWarning = "";
+      try {
+        await queueFolder(c.admin, customer_id);
+        const drive = await syncCustomerDrive(c.admin, customer_id, userId!);
+        driveWarning = drive.warning || "";
+      } catch (e) {
+        driveWarning = driveMessage(e);
+      }
+      return NextResponse.json({
+        ok: true,
+        invited: !existing,
+        drive_shared: !driveWarning,
+        ...(driveWarning ? { drive_warning: driveWarning } : {}),
+      });
     }
     if (action === "ocr")
       return extractDocument(z.string().uuid().parse(body.id), c);
