@@ -119,6 +119,7 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
   await db.exec(fs.readFileSync("supabase/migrations/20261116205810_apex_bulk_tasks.sql", "utf8"));
   await db.exec(fs.readFileSync("supabase/migrations/20261117114447_flexible_calendar.sql", "utf8"));
   await db.exec(fs.readFileSync("supabase/migrations/20261117121039_client_workspace.sql", "utf8"));
+  await db.exec(fs.readFileSync("supabase/migrations/20261117125356_automatic_delivery_folders.sql", "utf8"));
   assert.equal((await db.query("select has_function_privilege('anon','apex_bulk_update_tasks(jsonb,jsonb)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('anon','apex_review(uuid,integer,text,text)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('authenticated','apex_audit()','execute') allowed")).rows[0].allowed, false);
@@ -134,6 +135,8 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
   const customer = (
     await db.query(`insert into apex_customers(name) values('A') returning id`)
   ).rows[0].id;
+  assert.equal((await db.query('select status from apex_drive_folders where customer_id=$1',[customer])).rows[0].status,'pending','customer and folder queue commit together');
+  await assert.rejects(()=>db.query(`update apex_drive_folders set file_id='tampered' where customer_id=$1`,[customer]),/permission denied/);
   const project = (
     await db.query(
       `insert into apex_projects(customer_id,name) values($1,'Project') returning id`,
@@ -211,6 +214,8 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
     "profiles",
     "apex_settings",
     "apex_events",
+    "apex_drive_folders",
+    "apex_drive_shares",
   ])
     assert.equal(
       (await db.query(`select count(*)::int n from ${table}`)).rows[0].n,
@@ -249,6 +254,9 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
     /Yetkiniz yok/,
   );
   await db.exec(`reset role`);
+  assert.equal((await db.query('select status from apex_drive_shares where customer_id=$1',[customer])).rows[0].status,'pending','access and share queue commit together');
+  const claim=()=>db.query(`update apex_drive_folders set lease_token=gen_random_uuid(),lease_until=now()+interval '2 minutes' where customer_id=$1 and (lease_until is null or lease_until<now()) returning id`,[customer]);
+  assert.equal((await claim()).rows.length,1);assert.equal((await claim()).rows.length,0,'only one worker may change a folder at a time');
   assert.equal(
     (await db.query("select status from apex_deliverables where id=$1", [del]))
       .rows[0].status,

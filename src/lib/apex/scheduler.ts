@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { monthNow } from "./domain";
 import { syncGoogle } from "./google";
+import { retryDrive } from "./drive";
 import { syncSheets } from "./sheets";
 let running = false;
 export async function tick() {
@@ -31,7 +32,11 @@ export async function tick() {
           );
         }
       }
-      await syncSheets(admin);
+      try {
+        await syncSheets(admin);
+      } finally {
+        await retryDrive(admin);
+      }
     }
   } catch (e) {
     console.error(

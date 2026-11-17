@@ -291,3 +291,20 @@ async function sync(admin: Context["admin"], force: boolean) {
     throw e;
   }
 }
+
+// The existing drive.file consent is limited to files created/opened by Apex.
+export async function googleDriveToken(
+  admin: Context["admin"],
+): Promise<string> {
+  const connection = await setting(admin, "sheets");
+  if (!connection?.refresh_token)
+    throw new ApiError(
+      503,
+      "Drive bağlantısı kurulmalı. Ayarlar’dan Google tablo bağlantısını yenileyin.",
+    );
+  const access = await token({
+    refresh_token: connection.refresh_token,
+    grant_type: "refresh_token",
+  });
+  return access.access_token;
+}

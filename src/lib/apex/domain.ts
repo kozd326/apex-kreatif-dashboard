@@ -34,6 +34,8 @@ export type Dataset = {
   projects: Row[];
   tasks: Row[];
   archivedTasks?: Row[];
+  driveFolders?: Row[];
+  driveShares?: Row[];
   comments: Row[];
   deliverables: Row[];
   reviews: Row[];
