@@ -38,5 +38,11 @@ test('Drive HTTP: only explicit user permissions are created, notification choic
  const {driveApi}=await import('../src/lib/apex/drive-workflow.mjs');const requests=[];const api=driveApi('test-token',async(url,init)=>{requests.push({url,init});return {ok:true,json:async()=>({id:'permission'})};});
  await api.grant('folder','client@example.test','reader',true);await api.grant('folder','partner@example.test','writer',false);
  assert.deepEqual(JSON.parse(requests[0].init.body),{type:'user',role:'reader',emailAddress:'client@example.test'});assert.match(requests[0].url,/sendNotificationEmail=true/);assert.match(requests[1].url,/sendNotificationEmail=false/);
- const denied=driveApi('test-token',async()=>({ok:false,status:403}));await assert.rejects(()=>denied.reserveId(),/Drive izinleri/);
+ const denied=driveApi('test-token',async()=>({ok:false,status:403,json:async()=>({error:{errors:[{reason:'insufficientPermissions'}]}})}));await assert.rejects(()=>denied.reserveId(),/Drive izinleri/);
+});
+test('Drive pagination: omit empty page tokens and pass only tokens returned by Google',async()=>{
+ const {driveApi}=await import('../src/lib/apex/drive-workflow.mjs');const urls=[];
+ const api=driveApi('test-token',async(url)=>{urls.push(new URL(url));return {ok:true,json:async()=>urls.length===1?{permissions:[{id:'owner'}],nextPageToken:'next/page'}:{permissions:[{id:'writer'}]}};});
+ assert.deepEqual(await api.permissions('folder'),[{id:'owner'},{id:'writer'}]);
+ assert.equal(urls[0].searchParams.has('pageToken'),false);assert.equal(urls[1].searchParams.get('pageToken'),'next/page');
 });

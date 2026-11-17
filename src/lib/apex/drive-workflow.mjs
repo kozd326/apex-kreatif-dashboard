@@ -70,7 +70,7 @@ export function driveApi(accessToken, fetcher = fetch) {
       let page = "";
       do {
         const result = await request(
-          `files/${encodeURIComponent(id)}/permissions?pageSize=100&fields=nextPageToken,permissions(id,type,role,emailAddress,deleted)&pageToken=${encodeURIComponent(page)}`,
+          `files/${encodeURIComponent(id)}/permissions?pageSize=100&fields=nextPageToken,permissions(id,type,role,emailAddress,deleted)${page ? `&pageToken=${encodeURIComponent(page)}` : ""}`,
         );
         rows.push(...(result.permissions || []));
         page = result.nextPageToken || "";
