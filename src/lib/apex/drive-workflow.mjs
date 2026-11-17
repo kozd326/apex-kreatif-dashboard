@@ -19,7 +19,13 @@ export function driveApi(accessToken, fetcher = fetch) {
         signal: AbortSignal.any([deadline, AbortSignal.timeout(10000)]),
       },
     );
-    if (!response.ok)
+    if (!response.ok) {
+      const details = await response.json().catch(() => ({}));
+      const reason = details.error?.errors?.[0]?.reason;
+      // Log only Google's machine-readable reason; never tokens, addresses, or response bodies.
+      console.error("Apex Drive request failed", response.status,
+        typeof reason === "string" && /^[a-zA-Z_]+$/.test(reason) ? reason : "unknown",
+        init.method || "GET");
       throw new DriveFailure(
         response.status === 401
           ? "Google bağlantısını Ayarlar’dan yenileyin."
@@ -28,6 +34,7 @@ export function driveApi(accessToken, fetcher = fetch) {
             : "Drive işlemi tamamlanamadı. Yeniden denenecek.",
         response.status,
       );
+    }
     return response.json();
   };
   const fields =
