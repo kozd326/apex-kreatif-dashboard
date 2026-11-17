@@ -219,13 +219,43 @@ export async function POST(
         throw new ApiError(400, "Yorumun bağlı olduğu işi seçin.");
       if (table === "comments" && id)
         throw new ApiError(400, "Yorum geçmişi değiştirilemez.");
-      if (
-        table === "events" &&
-        patch.starts_at &&
-        patch.ends_at &&
-        patch.ends_at <= patch.starts_at
-      )
-        throw new ApiError(400, "Bitiş, başlangıçtan sonra olmalı.");
+      if (table === "events") {
+        let event = patch;
+        if (id) {
+          const { data: old, error } = await c.db
+            .from("apex_events")
+            .select("*")
+            .eq("id", id)
+            .single();
+          check(error);
+          event = { ...old, ...patch };
+        }
+        if (Date.parse(event.ends_at) <= Date.parse(event.starts_at))
+          throw new ApiError(400, "Bitiş, başlangıçtan sonra olmalı.");
+        if (
+          event.all_day &&
+          [event.starts_at, event.ends_at].some(
+            (date: string) => (Date.parse(date) + 3 * 3600000) % 86400000 !== 0,
+          )
+        )
+          throw new ApiError(400, "Tüm gün planlarında saat yerine gün seçin.");
+        if (patch.attendees?.length) {
+          const unique = [...new Set(patch.attendees)];
+          const { data: members, error } = await c.db
+            .from("apex_members")
+            .select("id")
+            .in("id", unique)
+            .eq("active", true)
+            .in("role", ["partner", "staff"]);
+          check(error);
+          if (members?.length !== unique.length)
+            throw new ApiError(
+              400,
+              "Katılımcı olarak aktif ekip üyelerini seçin.",
+            );
+          patch.attendees = unique;
+        }
+      }
       if (
         table === "packages" &&
         patch.kind === "service" &&

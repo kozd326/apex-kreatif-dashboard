@@ -62,6 +62,8 @@ import {
 import { usePreferences, clearDrafts } from "./local-state";
 import { BulkTasks } from "./bulk-tasks";
 import { InstallApp } from "./install-app";
+import { GuideView } from "./guide";
+import { localDateTime } from "@/lib/apex/calendar.mjs";
 import { Button, Modal, Empty, Badge, Field, Tabs } from "./ui";
 import dynamic from "next/dynamic";
 import { Editor } from "./editor";
@@ -398,7 +400,10 @@ export default function WorkspacePage({
           <div className="ax-breadcrumb">
             <span>Apex</span>
             <ChevronRight size={14} />
-            <strong>{selected?.[1] || "Ayarlar"}</strong>
+            <strong>
+              {selected?.[1] ||
+                (page === "guide" ? "Kullanım rehberi" : "Ayarlar")}
+            </strong>
           </div>
           <div className="ax-top-actions">
             <div className="ax-search">
@@ -499,8 +504,8 @@ export default function WorkspacePage({
                       ],
                       [
                         "events",
-                        "Plan ekle",
-                        "Çekim veya toplantı planla.",
+                        "Etkinlik ekle",
+                        "Saatli veya tüm gün; istediğin planı yaz.",
                         CalendarDays,
                       ],
                     ].map(([kind, title, hint, Icon]: any) => (
@@ -534,6 +539,8 @@ export default function WorkspacePage({
                 <CalendarView />
               ) : page === "finance" ? (
                 <FinanceView />
+              ) : page === "guide" ? (
+                <GuideView />
               ) : (
                 <SettingsView />
               )}
@@ -642,8 +649,8 @@ function Today() {
               t.follow_up_owner === d.member.id || t.created_by === d.member.id,
           );
   const next = d.events
-    .filter((e) => !e.cancelled && e.starts_at.slice(0, 10) >= today())
-    .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+    .filter((e) => !e.cancelled && Date.parse(e.ends_at) > Date.now())
+    .sort((a, b) => Date.parse(a.starts_at) - Date.parse(b.starts_at))
     .slice(0, 3);
   return (
     <>
@@ -720,10 +727,11 @@ function Today() {
                   onClick={() => open("events", e)}
                 >
                   <span className="ax-date-tile">
-                    {new Date(e.starts_at).getDate()}
+                    {Number(localDateTime(e.starts_at).slice(8, 10))}
                     <small>
                       {new Date(e.starts_at).toLocaleDateString("tr-TR", {
                         month: "short",
+                        timeZone: "Europe/Istanbul",
                       })}
                     </small>
                   </span>
@@ -731,18 +739,20 @@ function Today() {
                     <strong>{e.title}</strong>
                     <small>
                       {e.kind} ·{" "}
-                      {new Date(e.starts_at).toLocaleTimeString("tr-TR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        timeZone: "Europe/Istanbul",
-                      })}
+                      {e.all_day
+                        ? "Tüm gün"
+                        : new Date(e.starts_at).toLocaleTimeString("tr-TR", {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                            timeZone: "Europe/Istanbul",
+                          })}
                     </small>
                   </span>
                   <ChevronRight size={15} />
                 </button>
               ))
             ) : (
-              <Empty>Yaklaşan çekim veya toplantı yok.</Empty>
+              <Empty>Yaklaşan plan yok.</Empty>
             )}
           </section>
           <section className="ax-panel">
@@ -1698,6 +1708,20 @@ function SettingsView() {
           </Button>
         }
       />
+      <section className="ax-panel ax-pad ax-guide-link">
+        <div>
+          <h2>Paneli nasıl kullanıyoruz?</h2>
+          <p>
+            Görevler, müşteri takibi, takvim ve finans için kısa ekip rehberi.
+          </p>
+        </div>
+        <Link
+          className="ax-button secondary"
+          href={preview ? "/preview?page=guide" : "/guide"}
+        >
+          Kullanım rehberini aç
+        </Link>
+      </section>
       <InstallApp />
       <div className="ax-two-col">
         <section className="ax-panel">

@@ -117,10 +117,19 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
   await db.exec(`reset role; grant execute on all functions in schema public to anon, authenticated;`);
   await db.exec(fs.readFileSync("supabase/migrations/20261116190226_apex_function_access.sql", "utf8"));
   await db.exec(fs.readFileSync("supabase/migrations/20261116205810_apex_bulk_tasks.sql", "utf8"));
+  await db.exec(fs.readFileSync("supabase/migrations/20261117114447_flexible_calendar.sql", "utf8"));
   assert.equal((await db.query("select has_function_privilege('anon','apex_bulk_update_tasks(jsonb,jsonb)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('anon','apex_review(uuid,integer,text,text)','execute') allowed")).rows[0].allowed, false);
   assert.equal((await db.query("select has_function_privilege('authenticated','apex_audit()','execute') allowed")).rows[0].allowed, false);
   await db.exec(`set role authenticated;`);
+  const event = (await db.query("insert into apex_events(title,kind,starts_at,ends_at,all_day,description) values('Team day','Özel plan','2026-11-16T21:00:00Z','2026-11-17T21:00:00Z',true,'Private preparation') returning *")).rows[0];
+  assert.equal(event.all_day, true);
+  await assert.rejects(() => db.query("update apex_events set ends_at=starts_at where id=$1", [event.id]), /check constraint/);
+  await assert.rejects(() => db.query("update apex_events set starts_at='2026-11-17T10:00:00Z' where id=$1", [event.id]), /check constraint/);
+  await assert.rejects(() => db.query("update apex_events set kind='  ' where id=$1", [event.id]), /check constraint/);
+  await db.query("update apex_events set cancelled=true where id=$1", [event.id]);
+  assert.equal((await db.query("select cancelled from apex_events where id=$1", [event.id])).rows[0].cancelled, true);
+  await db.query("update apex_events set cancelled=false where id=$1", [event.id]);
   const customer = (
     await db.query(`insert into apex_customers(name) values('A') returning id`)
   ).rows[0].id;
@@ -200,6 +209,7 @@ test("database: migration, isolation, exact-version reviews, atomic recurring ge
     "apex_cash",
     "profiles",
     "apex_settings",
+    "apex_events",
   ])
     assert.equal(
       (await db.query(`select count(*)::int n from ${table}`)).rows[0].n,
